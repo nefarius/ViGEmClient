@@ -68,3 +68,6 @@
 /app/Tester/Release/vcpkg.applocal.log
 /app/Tester/x64/Release/Tester.Build.CppClean.log
 /app/Tester/x64/Release
+/build/doctrees
+/build/html
+/docs/doxygen
