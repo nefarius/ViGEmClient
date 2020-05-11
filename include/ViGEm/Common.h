@@ -160,10 +160,10 @@ typedef enum _DS4_DPAD_DIRECTIONS
 
 typedef enum _DS4_BITMASK_FLAGS
 {
-    DS4_BATTERY_CHARGING = 1 << 3, // I feel like this should be DS4_BATTERY_CHARGING; it seems to be active high
-    DS4_USB_CABLE_CONNECTED = 1 << 4,
-    DS4_HEADPHONE_CONNECTED = 1 << 5,
-    DS4_HEADPHONE_JACK_MIC_CONNECTED = 1 << 6, // check order of MIC and HEADPHONE, I feel like they should be swapped
+    DS4_BATTERY_CHARGING = 1 << 4, // active high
+    DS4_USB_CABLE_CONNECTED = 1 << 5,
+    DS4_HEADPHONE_CONNECTED = 1 << 6,
+    DS4_HEADPHONE_JACK_MIC_CONNECTED = 1 << 7,
     DS4_HEADPHONE_W_MIC_CONNECTED = (DS4_HEADPHONE_CONNECTED | DS4_HEADPHONE_JACK_MIC_CONNECTED)
 
 } DS4_BITMASK_FLAGS, *PDS4_BITMASK_FLAGS;
@@ -210,10 +210,11 @@ typedef struct _DS4_REPORT_EX
     SHORT nAccY;
     SHORT nAccZ;
     BYTE abReserved0[5];
-    BYTE bBitmask; // 0|0|HEADPHONE|MIC|USB CABLE|charging(active high?)|batterLvl1|batteryLvl2
-                   // batteryLvl1 and 2 combine in big endian order. Max battery level value while charging is 11, other is 8
+    BYTE bBitmask; // MIC|HEADPHONE|USB CABLE|charging(active high?)|batteryNibble
+                   // batteryNibble (4b) indicates battery level. Max battery level value while charging is 11, other is 8
     BYTE abReserved1[2];
-    BYTE bTPADMask; // indicated number of touch packets in report (0x00 to 0x03 (USB) or 0x04 (BT))
+    BYTE bTPADMask; // indicates number of touch packets in report (0x00 to 0x03 (USB) or 0x04 (BT)) 
+                    // Usually 0x01 or 0x00
     BYTE bTPADIncrement;
     /*
     TODO: Check V1 touch data, V2 over USB has been observed so far to only send max touch data of 2 fingers
@@ -253,21 +254,17 @@ VOID FORCEINLINE DS4_SET_TPAD(
     _In_ BYTE TouchId,
     _In_ BOOLEAN Active)
 {
-    // T-PAD resolution is 1920x943
-    USHORT cX = min(1919, X);
-    USHORT cY = min(942, Y);
-    BYTE cTouchId = min(127, TouchId);
     if (FirstFinger) {
-        ReportEx->aCurrentTouchData[0].bIsUp_TrackingID = (!Active << 7) + cTouchId;
-        ReportEx->aCurrentTouchData[0].abCoords[0] = (BYTE)(cX & 0xFF);
-        ReportEx->aCurrentTouchData[0].abCoords[1] = (BYTE)(((cX & 0xF00) >> 8) | ((cY & 0xF) << 4));
-        ReportEx->aCurrentTouchData[0].abCoords[2] = (BYTE)((cY & 0xFF0) >> 4);
+        ReportEx->aCurrentTouchData[0].bIsUp_TrackingID = (!Active << 7) + (0x7F & TouchId);
+        ReportEx->aCurrentTouchData[0].abCoords[0] = (BYTE)(X & 0xFF);
+        ReportEx->aCurrentTouchData[0].abCoords[1] = (BYTE)(((X & 0xF00) >> 8) | ((Y & 0xF) << 4));
+        ReportEx->aCurrentTouchData[0].abCoords[2] = (BYTE)((Y & 0xFF0) >> 4);
     }
     else {
-        ReportEx->aCurrentTouchData[1].bIsUp_TrackingID = (!Active << 7) + cTouchId;
-        ReportEx->aCurrentTouchData[1].abCoords[0] = (BYTE)(cX & 0xFF);
-        ReportEx->aCurrentTouchData[1].abCoords[1] = (BYTE)(((cX & 0xF00) >> 8) | ((cY & 0xF) << 4));
-        ReportEx->aCurrentTouchData[1].abCoords[2] = (BYTE)((cY & 0xFF0) >> 4);
+        ReportEx->aCurrentTouchData[1].bIsUp_TrackingID = (!Active << 7) + (0x7F & TouchId);
+        ReportEx->aCurrentTouchData[1].abCoords[0] = (BYTE)(X & 0xFF);
+        ReportEx->aCurrentTouchData[1].abCoords[1] = (BYTE)(((X & 0xF00) >> 8) | ((Y & 0xF) << 4));
+        ReportEx->aCurrentTouchData[1].abCoords[2] = (BYTE)((Y & 0xFF0) >> 4);
     }
 }
 
@@ -308,7 +305,7 @@ VOID FORCEINLINE DS4_REPORT_EX_INIT(
     ReportEx->aPreviousTouchData[0].bIsUp_TrackingID = (1 << 7);
     ReportEx->aPreviousTouchData[1].bIsUp_TrackingID = (1 << 7);
 
-    // connected by USB, charging battery, at near full charge level
-    ReportEx->bBitmask = DS4_USB_CABLE_CONNECTED | DS4_BATTERY_CHARGING | 0xA;
+    // 0x0B is max battery level for USB, 0x08 for BT
+    ReportEx->bBitmask = DS4_BATTERY_CHARGING | 0x0B;
 }
 
