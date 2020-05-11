@@ -429,6 +429,39 @@ extern "C" {
     VIGEM_API VIGEM_ERROR vigem_target_ds4_update(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, DS4_REPORT report);
 
     /**
+     * \fn  VIGEM_ERROR vigem_target_ds4_update_ex(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, DS4_REPORT_EX reportex);
+     *
+     * \brief   Sends extended state report to the provided target device.
+     *
+     * \author  Jason "megadrago88" Hart
+     * \date    10.5.2020
+     *
+     * \param   vigem   The driver connection object.
+     * \param   target  The target device object.
+     * \param   reportex  The extended report to send to the target device.
+     *
+     * \return  A VIGEM_ERROR.
+     */
+    VIGEM_API VIGEM_ERROR vigem_target_ds4_update_ex(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, DS4_REPORT_EX reportex);
+
+    /**
+     * \fn  VIGEM_ERROR vigem_target_ds4_update_full(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, DS4_REPORT report, DS4_REPORT_EX reportex);
+    *
+    * \brief   Sends both state report and extended state report to the provided target device.
+    *
+    * \author  Jason "megadrago88" Hart
+    * \date    10.5.2020
+    *
+    * \param   vigem   The driver connection object.
+    * \param   target  The target device object.
+    * \param   report  The report to send the the target device.
+    * \param   reportex  The extended report to send to the same target device.
+    *
+    * \return  A VIGEM_ERROR.
+    */
+    VIGEM_API VIGEM_ERROR vigem_target_ds4_update_full(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, DS4_REPORT report, DS4_REPORT_EX reportex);
+
+    /**
      * \fn  ULONG vigem_target_get_index(PVIGEM_TARGET target);
      *
      * \brief   Returns the internal index (serial number) the bus driver assigned to the provided

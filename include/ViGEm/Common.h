@@ -158,6 +158,16 @@ typedef enum _DS4_DPAD_DIRECTIONS
 
 } DS4_DPAD_DIRECTIONS, *PDS4_DPAD_DIRECTIONS;
 
+typedef enum _DS4_BITMASK_FLAGS
+{
+    DS4_BATTERY_CHARGED = 1 << 3,
+    DS4_USB_CABLE_CONNECTED = 1 << 4,
+    DS4_HEADPHONE_CONNECTED = 1 << 5,
+    DS4_HEADPHONE_JACK_MIC_CONNECTED = 1 << 6,
+    DS4_HEADPHONE_W_MIC_CONNECTED = (DS4_HEADPHONE_CONNECTED | DS4_HEADPHONE_JACK_MIC_CONNECTED)
+
+}DS4_BITMASK_FLAGS, *PDS4_BITMASK_FLAGS;
+
 #include <pshpack1.h>
 
 //
@@ -176,6 +186,46 @@ typedef struct _DS4_REPORT
 
 } DS4_REPORT, *PDS4_REPORT;
 
+//
+// DualShock 4 HID Input Touchpad data
+//
+typedef struct _DS4_TOUCH_DATA
+{
+    BYTE bIsUp_TrackingID;
+    BYTE abCoords[3];
+
+}DS4_TOUCH_DATA,*PDS4_TOUCH_DATA;
+
+//
+// Dualshock 4 HID Input Report Extension
+//
+typedef struct _DS4_REPORT_EX
+{
+    USHORT wTimeStamp;
+    BYTE bBatteryLvl;
+    SHORT nGyroX;
+    SHORT nGyroY;
+    SHORT nGyroZ;
+    SHORT nAccX;
+    SHORT nAccY;
+    SHORT nAccZ;
+    BYTE abReserved0[5];
+    BYTE bBitmask;
+    BYTE abReserved1[2];
+    BYTE bTPADMask;
+    BYTE bTPADIncrement;
+    /*
+    TODO: Check V1 touch data, V2 over USB has been observed so far to only send max touch data of 2 fingers
+    and it doesn't track previous, but holds it persistently until another update. Along with conflicting data on what
+    bTPADMask means.
+    */
+    DS4_TOUCH_DATA aCurrentTouchData[2];
+    DS4_TOUCH_DATA aPreviousTouchData[2];
+
+    BYTE abReserved3[13]; //TODO: Quadruple check as it feels off
+
+} DS4_REPORT_EX,*PDS4_REPORT_EX;
+
 #include <poppack.h>
 
 //
@@ -190,6 +240,32 @@ VOID FORCEINLINE DS4_SET_DPAD(
     Report->wButtons |= (USHORT)Dpad;
 }
 
+//
+// Sets the current state of the TPAD on a Dualshock 4 report.
+//
+VOID FORCEINLINE DS4_SET_TPAD(
+    _Out_ PDS4_REPORT_EX ReportEx,
+    _In_ BOOLEAN FirstFinger,
+    _In_ USHORT X,
+    _In_ USHORT Y,
+    _In_ BYTE TouchId,
+    _In_ BOOLEAN Active)
+{
+    //TODO: Check bounds since there is a spare bit
+    if (FirstFinger) {
+        ReportEx->aCurrentTouchData[0].bIsUp_TrackingID = (!Active << 7) + TouchId;
+        ReportEx->aCurrentTouchData[0].abCoords[0] = (BYTE)(X & 0xFF);
+        ReportEx->aCurrentTouchData[0].abCoords[1] = (BYTE)(((X & 0xF00) >> 8) | ((Y & 0xF) << 4));
+        ReportEx->aCurrentTouchData[0].abCoords[2] = (BYTE)((Y & 0xFF0) >> 4);
+    }
+    else {
+        ReportEx->aCurrentTouchData[1].bIsUp_TrackingID = (!Active << 7) + TouchId;
+        ReportEx->aCurrentTouchData[1].abCoords[0] = (BYTE)(X & 0xFF);
+        ReportEx->aCurrentTouchData[1].abCoords[1] = (BYTE)(((X & 0xF00) >> 8) | ((Y & 0xF) << 4));
+        ReportEx->aCurrentTouchData[1].abCoords[2] = (BYTE)((Y & 0xFF0) >> 4);
+    }
+}
+
 VOID FORCEINLINE DS4_REPORT_INIT(
     _Out_ PDS4_REPORT Report
 )
@@ -202,5 +278,18 @@ VOID FORCEINLINE DS4_REPORT_INIT(
     Report->bThumbRY = 0x80;
 
     DS4_SET_DPAD(Report, DS4_BUTTON_DPAD_NONE);
+}
+
+VOID FORCEINLINE DS4_REPORT_EX_INIT(
+    _Out_ PDS4_REPORT_EX ReportEx
+)
+{
+    RtlZeroMemory(ReportEx, sizeof(DS4_REPORT_EX));
+
+    //TODO: Update once more testing is done
+    ReportEx->aCurrentTouchData[0].bIsUp_TrackingID = (1 << 7);
+    ReportEx->aCurrentTouchData[1].bIsUp_TrackingID = (1 << 7);
+    ReportEx->aPreviousTouchData[0].bIsUp_TrackingID = (1 << 7);
+    ReportEx->aPreviousTouchData[1].bIsUp_TrackingID = (1 << 7);
 }
 

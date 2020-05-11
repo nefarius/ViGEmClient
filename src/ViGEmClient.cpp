@@ -905,6 +905,105 @@ VIGEM_ERROR vigem_target_ds4_update(
     return VIGEM_ERROR_NONE;
 }
 
+//TODO: Finish
+VIGEM_API VIGEM_ERROR vigem_target_ds4_update_ex(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, DS4_REPORT_EX reportex)
+{
+    if (!vigem)
+        return VIGEM_ERROR_BUS_INVALID_HANDLE;
+
+    if (!target)
+        return VIGEM_ERROR_INVALID_TARGET;
+
+    if (vigem->hBusDevice == INVALID_HANDLE_VALUE)
+        return VIGEM_ERROR_BUS_NOT_FOUND;
+
+    if (target->SerialNo == 0)
+        return VIGEM_ERROR_INVALID_TARGET;
+
+    DWORD transferred = 0;
+    OVERLAPPED lOverlapped = { 0 };
+    lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+
+    DS4_SUBMIT_REPORT_EX dsr;
+    DS4_SUBMIT_REPORT_EX_INIT(&dsr, target->SerialNo);
+
+    dsr.ReportEx = reportex;
+
+    DeviceIoControl(
+        vigem->hBusDevice,
+        IOCTL_DS4_SUBMIT_REPORT,
+        &dsr,
+        dsr.Size,
+        nullptr,
+        0,
+        &transferred,
+        &lOverlapped
+    );
+
+    if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) == 0)
+    {
+        if (GetLastError() == ERROR_ACCESS_DENIED)
+        {
+            CloseHandle(lOverlapped.hEvent);
+            return VIGEM_ERROR_INVALID_TARGET;
+        }
+    }
+
+    CloseHandle(lOverlapped.hEvent);
+
+    return VIGEM_ERROR_NONE;
+}
+
+//TODO: Finish
+VIGEM_API VIGEM_ERROR vigem_target_ds4_update_full(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, DS4_REPORT report, DS4_REPORT_EX reportex)
+{
+    if (!vigem)
+        return VIGEM_ERROR_BUS_INVALID_HANDLE;
+
+    if (!target)
+        return VIGEM_ERROR_INVALID_TARGET;
+
+    if (vigem->hBusDevice == INVALID_HANDLE_VALUE)
+        return VIGEM_ERROR_BUS_NOT_FOUND;
+
+    if (target->SerialNo == 0)
+        return VIGEM_ERROR_INVALID_TARGET;
+
+    DWORD transferred = 0;
+    OVERLAPPED lOverlapped = { 0 };
+    lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+
+    DS4_SUBMIT_REPORT_FULL dsr;
+    DS4_SUBMIT_REPORT_FULL_INIT(&dsr, target->SerialNo);
+
+    dsr.Submit.Report = report;
+    dsr.ReportEx = reportex;
+
+    DeviceIoControl(
+        vigem->hBusDevice,
+        IOCTL_DS4_SUBMIT_REPORT,
+        &dsr,
+        dsr.Submit.Size,
+        nullptr,
+        0,
+        &transferred,
+        &lOverlapped
+    );
+
+    if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) == 0)
+    {
+        if (GetLastError() == ERROR_ACCESS_DENIED)
+        {
+            CloseHandle(lOverlapped.hEvent);
+            return VIGEM_ERROR_INVALID_TARGET;
+        }
+    }
+
+    CloseHandle(lOverlapped.hEvent);
+
+    return VIGEM_ERROR_NONE;
+}
+
 ULONG vigem_target_get_index(PVIGEM_TARGET target)
 {
     return target->SerialNo;

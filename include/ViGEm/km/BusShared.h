@@ -385,6 +385,39 @@ typedef struct _DS4_SUBMIT_REPORT
 } DS4_SUBMIT_REPORT, *PDS4_SUBMIT_REPORT;
 
 //
+// Dualshock 4 extended request data
+//
+typedef struct _DS4_SUBMIT_REPORT_EX
+{
+    //
+    // sizeof(struct _DS4_SUBMIT_REPORT_EX)
+    //
+    ULONG Size;
+
+    //
+    // Serial number of target device.
+    // 
+    ULONG SerialNo;
+
+    //
+    // HID Extended Input report
+    //
+    DS4_REPORT_EX ReportEx;
+
+}DS4_SUBMIT_REPORT_EX,*PDS4_SUBMIT_REPORT_EX;
+
+//TODO: Check if it should be two structs or if it's better to have it fully presented
+//
+// DualShock 4 normal and extended request data
+//
+typedef struct _DS4_SUBMIT_REPORT_FULL
+{
+    DS4_SUBMIT_REPORT Submit;
+    DS4_REPORT_EX ReportEx;
+
+}DS4_SUBMIT_REPORT_FULL,*PDS4_SUBMIT_REPORT_FULL;
+
+//
 // Initializes a DualShock 4 report.
 // 
 VOID FORCEINLINE DS4_SUBMIT_REPORT_INIT(
@@ -399,6 +432,41 @@ VOID FORCEINLINE DS4_SUBMIT_REPORT_INIT(
 
     DS4_REPORT_INIT(&Report->Report);
 }
+
+//
+// Initializes a DualShock 4 extended report.
+//
+VOID FORCEINLINE DS4_SUBMIT_REPORT_EX_INIT(
+    _Out_ PDS4_SUBMIT_REPORT_EX ReportEx,
+    _In_ ULONG SerialNo
+)
+{
+    RtlZeroMemory(ReportEx, sizeof(DS4_SUBMIT_REPORT_EX));
+
+    ReportEx->Size = sizeof(DS4_SUBMIT_REPORT_EX);
+    ReportEx->SerialNo = SerialNo;
+
+    DS4_REPORT_EX_INIT(&ReportEx->ReportEx);
+}
+
+//
+// Initializes a full DualShock 4 report.
+//
+VOID FORCEINLINE DS4_SUBMIT_REPORT_FULL_INIT(
+    _Out_ PDS4_SUBMIT_REPORT_FULL ReportFull,
+    _In_ ULONG SerialNo
+)
+{
+    RtlZeroMemory(ReportFull, sizeof(DS4_SUBMIT_REPORT_FULL));
+
+    ReportFull->Submit.Size = sizeof(DS4_SUBMIT_REPORT_FULL);
+    ReportFull->Submit.SerialNo = SerialNo;
+
+    DS4_REPORT_INIT(&ReportFull->Submit.Report);
+    DS4_REPORT_EX_INIT(&ReportFull->ReportEx);
+}
+//TODO: Cut down on duplication
+
 
 #pragma endregion
 
