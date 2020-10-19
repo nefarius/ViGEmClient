@@ -228,7 +228,7 @@ VIGEM_ERROR vigem_connect(PVIGEM_CLIENT vigem)
     if (!vigem)
         return VIGEM_ERROR_BUS_INVALID_HANDLE;
 
-    SP_DEVICE_INTERFACE_DATA deviceInterfaceData = { 0 };
+    SP_DEVICE_INTERFACE_DATA deviceInterfaceData = {};
     deviceInterfaceData.cbSize = sizeof(deviceInterfaceData);
     DWORD memberIndex = 0;
     DWORD requiredSize = 0;
@@ -299,7 +299,7 @@ VIGEM_ERROR vigem_connect(PVIGEM_CLIENT vigem)
         }
 
         DWORD transferred = 0;
-        OVERLAPPED lOverlapped = { 0 };
+        OVERLAPPED lOverlapped = {};
         lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
         VIGEM_CHECK_VERSION version;
@@ -402,7 +402,7 @@ VIGEM_ERROR vigem_target_add(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 
     DWORD transferred = 0;
     VIGEM_PLUGIN_TARGET plugin;
-    OVERLAPPED lOverlapped = { 0 };
+    OVERLAPPED lOverlapped = {};
     lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
     for (target->SerialNo = 1; target->SerialNo <= VIGEM_TARGETS_MAX; target->SerialNo++)
@@ -461,7 +461,7 @@ VIGEM_ERROR vigem_target_add_async(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, PF
     {
         DWORD transferred = 0;
         VIGEM_PLUGIN_TARGET plugin;
-        OVERLAPPED lOverlapped = { 0 };
+        OVERLAPPED lOverlapped = {};
         lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
         for (_Target->SerialNo = 1; _Target->SerialNo <= VIGEM_TARGETS_MAX; _Target->SerialNo++)
@@ -525,7 +525,7 @@ VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 
     DWORD transfered = 0;
     VIGEM_UNPLUG_TARGET unplug;
-    OVERLAPPED lOverlapped = { 0 };
+    OVERLAPPED lOverlapped = {};
     lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
     VIGEM_UNPLUG_TARGET_INIT(&unplug, target->SerialNo);
@@ -820,7 +820,7 @@ VIGEM_ERROR vigem_target_x360_update(
         return VIGEM_ERROR_INVALID_TARGET;
 
     DWORD transferred = 0;
-    OVERLAPPED lOverlapped = { 0 };
+    OVERLAPPED lOverlapped = {};
     lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
     XUSB_SUBMIT_REPORT xsr;
@@ -872,7 +872,7 @@ VIGEM_ERROR vigem_target_ds4_update(
         return VIGEM_ERROR_INVALID_TARGET;
 
     DWORD transferred = 0;
-    OVERLAPPED lOverlapped = { 0 };
+    OVERLAPPED lOverlapped = {};
     lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
     DS4_SUBMIT_REPORT dsr;
@@ -938,11 +938,11 @@ VIGEM_ERROR vigem_target_x360_get_user_index(
     if (target->SerialNo == 0 || target->Type != Xbox360Wired)
         return VIGEM_ERROR_INVALID_TARGET;
 
-	if (!index)
-		return VIGEM_ERROR_INVALID_PARAMETER;
+    if (!index)
+        return VIGEM_ERROR_INVALID_PARAMETER;
 
     DWORD transferred = 0;
-    OVERLAPPED lOverlapped = { 0 };
+    OVERLAPPED lOverlapped = {};
     lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
     XUSB_GET_USER_INDEX gui;
