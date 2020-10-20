@@ -110,7 +110,7 @@ const auto pir = vigem_target_add(client, pad);
 //
 if (!VIGEM_SUCCESS(pir))
 {
-    std::cerr << "Target plugin failed with error code: 0x" << std::hex << retval << std::endl;
+    std::cerr << "Target plugin failed with error code: 0x" << std::hex << pir << std::endl;
     return -1;
 }
 
