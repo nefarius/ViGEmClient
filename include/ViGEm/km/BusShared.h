@@ -62,6 +62,7 @@ DEFINE_GUID(GUID_DEVINTERFACE_BUSENUM_VIGEM,
 #define IOCTL_VIGEM_PLUGIN_TARGET       BUSENUM_W_IOCTL (IOCTL_VIGEM_BASE + 0x000)
 #define IOCTL_VIGEM_UNPLUG_TARGET       BUSENUM_W_IOCTL (IOCTL_VIGEM_BASE + 0x001)
 #define IOCTL_VIGEM_CHECK_VERSION       BUSENUM_W_IOCTL (IOCTL_VIGEM_BASE + 0x002)
+#define IOCTL_VIGEM_WAIT_DEVICE_READY   BUSENUM_W_IOCTL (IOCTL_VIGEM_BASE + 0x003)
 
 #define IOCTL_XUSB_REQUEST_NOTIFICATION BUSENUM_RW_IOCTL(IOCTL_VIGEM_BASE + 0x200)
 #define IOCTL_XUSB_SUBMIT_REPORT        BUSENUM_W_IOCTL (IOCTL_VIGEM_BASE + 0x201)
@@ -182,6 +183,29 @@ VOID FORCEINLINE VIGEM_CHECK_VERSION_INIT(
 
     CheckVersion->Size = sizeof(VIGEM_CHECK_VERSION);
     CheckVersion->Version = Version;
+}
+
+#pragma endregion
+
+#pragma region Wait device ready
+
+typedef struct _VIGEM_WAIT_DEVICE_READY
+{
+    IN ULONG Size;
+
+    IN ULONG SerialNo;
+
+} VIGEM_WAIT_DEVICE_READY, * PVIGEM_WAIT_DEVICE_READY;
+
+VOID FORCEINLINE VIGEM_WAIT_DEVICE_READY_INIT(
+    _Out_ PVIGEM_WAIT_DEVICE_READY WaitReady,
+    _In_ ULONG SerialNo
+)
+{
+    RtlZeroMemory(WaitReady, sizeof(VIGEM_WAIT_DEVICE_READY));
+
+    WaitReady->Size = sizeof(VIGEM_WAIT_DEVICE_READY);
+    WaitReady->SerialNo = SerialNo;
 }
 
 #pragma endregion 
@@ -400,5 +424,44 @@ VOID FORCEINLINE DS4_SUBMIT_REPORT_INIT(
     DS4_REPORT_INIT(&Report->Report);
 }
 
-#pragma endregion
+#include <pshpack1.h>
 
+//
+// DualShock 4 extended report request
+// 
+typedef struct _DS4_SUBMIT_REPORT_EX
+{
+    //
+     // sizeof(struct _DS4_SUBMIT_REPORT_EX)
+     // 
+    _In_ ULONG Size;
+
+    //
+    // Serial number of target device.
+    // 
+    _In_ ULONG SerialNo;
+
+    //
+    // Full size HID report excluding fixed Report ID.
+    // 
+    _In_ DS4_REPORT_EX Report;
+
+} DS4_SUBMIT_REPORT_EX, * PDS4_SUBMIT_REPORT_EX;
+
+#include <poppack.h>
+
+//
+// Initializes a DualShock 4 extended report.
+// 
+VOID FORCEINLINE DS4_SUBMIT_REPORT_EX_INIT(
+    _Out_ PDS4_SUBMIT_REPORT_EX Report,
+    _In_ ULONG SerialNo
+)
+{
+    RtlZeroMemory(Report, sizeof(DS4_SUBMIT_REPORT_EX));
+
+    Report->Size = sizeof(DS4_SUBMIT_REPORT_EX);
+    Report->SerialNo = SerialNo;
+}
+
+#pragma endregion

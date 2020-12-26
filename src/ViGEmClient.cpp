@@ -53,7 +53,13 @@ SOFTWARE.
 // 
 #include "Internal.h"
 
+//
+// Uncomment to compile in crash dump handler
+// 
+//#define VIGEM_USE_CRASH_HANDLER
 
+
+#ifdef VIGEM_USE_CRASH_HANDLER
 typedef BOOL(WINAPI *MINIDUMPWRITEDUMP)(
     HANDLE hProcess,
     DWORD dwPid,
@@ -65,76 +71,7 @@ typedef BOOL(WINAPI *MINIDUMPWRITEDUMP)(
     );
 
 LONG WINAPI vigem_internal_exception_handler(struct _EXCEPTION_POINTERS* apExceptionInfo);
-
-
-//
-// DeviceIOControl request notification handler classes for X360 and DS4 controller types. 
-// vigem_target_XXX_register_notification functions use x360 or DS4 derived class instances in a notification thread handlers.
-//
-class NotificationRequestPayload
-{
-public:
-	LPVOID lpPayloadBuffer;
-	DWORD  payloadBufferSize;
-	DWORD  ioControlCode;
-
-public:
-	NotificationRequestPayload(DWORD _bufferSize, DWORD _ioControlCode)
-	{ 
-		lpPayloadBuffer = malloc(_bufferSize);
-		payloadBufferSize = _bufferSize;
-		ioControlCode = _ioControlCode;
-	}
-
-	virtual ~NotificationRequestPayload()
-	{
-		free(lpPayloadBuffer);
-	}
-
-	virtual void ProcessNotificationRequest(PVIGEM_CLIENT client, PVIGEM_TARGET target) = 0;
-};
-
-class NotificationRequestPayloadX360 : public NotificationRequestPayload
-{
-public:
-	NotificationRequestPayloadX360(ULONG _serialNo) : NotificationRequestPayload(sizeof(XUSB_REQUEST_NOTIFICATION), IOCTL_XUSB_REQUEST_NOTIFICATION)
-	{
-		// Let base class to allocate required buffer size, but initialize it here with a correct type of initialization function
-		XUSB_REQUEST_NOTIFICATION_INIT((PXUSB_REQUEST_NOTIFICATION)lpPayloadBuffer, _serialNo);
-	}
-
-	void ProcessNotificationRequest(PVIGEM_CLIENT client, PVIGEM_TARGET target) override
-	{
-		if(target->Notification != nullptr)
-			PFN_VIGEM_X360_NOTIFICATION(target->Notification)(client, target,
-				((PXUSB_REQUEST_NOTIFICATION)lpPayloadBuffer)->LargeMotor, 
-				((PXUSB_REQUEST_NOTIFICATION)lpPayloadBuffer)->SmallMotor,
-				((PXUSB_REQUEST_NOTIFICATION)lpPayloadBuffer)->LedNumber,
-				target->NotificationUserData
-			);
-	}
-};
-
-class NotificationRequestPayloadDS4 : public NotificationRequestPayload
-{
-public:
-	NotificationRequestPayloadDS4(ULONG _serialNo) : NotificationRequestPayload(sizeof(DS4_REQUEST_NOTIFICATION), IOCTL_DS4_REQUEST_NOTIFICATION)
-	{
-		// Let base class to allocate required buffer size, but initialize it here with a correct type of initialization function
-		DS4_REQUEST_NOTIFICATION_INIT((PDS4_REQUEST_NOTIFICATION)lpPayloadBuffer, _serialNo);
-	}
-
-	void ProcessNotificationRequest(PVIGEM_CLIENT client, PVIGEM_TARGET target) override
-	{
-		if (target->Notification != nullptr)
-			PFN_VIGEM_DS4_NOTIFICATION(target->Notification)(client, target,
-				((PDS4_REQUEST_NOTIFICATION)lpPayloadBuffer)->Report.LargeMotor,
-				((PDS4_REQUEST_NOTIFICATION)lpPayloadBuffer)->Report.SmallMotor,
-				((PDS4_REQUEST_NOTIFICATION)lpPayloadBuffer)->Report.LightbarColor,
-				target->NotificationUserData
-			);
-	}
-};
+#endif
 
 
 //
@@ -154,11 +91,10 @@ PVIGEM_TARGET FORCEINLINE VIGEM_TARGET_ALLOC_INIT(
     target->Size = sizeof(VIGEM_TARGET);
     target->State = VIGEM_TARGET_INITIALIZED;
     target->Type = Type;
-	target->notificationThreadList = nullptr;
     return target;
 }
 
-
+#ifdef VIGEM_USE_CRASH_HANDLER
 LONG WINAPI vigem_internal_exception_handler(struct _EXCEPTION_POINTERS* apExceptionInfo)
 {
     const auto mhLib = LoadLibrary(L"dbghelp.dll");
@@ -201,10 +137,13 @@ LONG WINAPI vigem_internal_exception_handler(struct _EXCEPTION_POINTERS* apExcep
 
     return EXCEPTION_CONTINUE_SEARCH;
 }
+#endif
 
 PVIGEM_CLIENT vigem_alloc()
 {
+#ifdef VIGEM_USE_CRASH_HANDLER
     SetUnhandledExceptionFilter(vigem_internal_exception_handler);
+#endif
 
     const auto driver = static_cast<PVIGEM_CLIENT>(malloc(sizeof(VIGEM_CLIENT)));
 
@@ -228,7 +167,7 @@ VIGEM_ERROR vigem_connect(PVIGEM_CLIENT vigem)
     if (!vigem)
         return VIGEM_ERROR_BUS_INVALID_HANDLE;
 
-    SP_DEVICE_INTERFACE_DATA deviceInterfaceData = {};
+    SP_DEVICE_INTERFACE_DATA deviceInterfaceData = { 0 };
     deviceInterfaceData.cbSize = sizeof(deviceInterfaceData);
     DWORD memberIndex = 0;
     DWORD requiredSize = 0;
@@ -299,7 +238,7 @@ VIGEM_ERROR vigem_connect(PVIGEM_CLIENT vigem)
         }
 
         DWORD transferred = 0;
-        OVERLAPPED lOverlapped = {};
+        OVERLAPPED lOverlapped = { 0 };
         lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
         VIGEM_CHECK_VERSION version;
@@ -385,125 +324,177 @@ void vigem_target_free(PVIGEM_TARGET target)
 
 VIGEM_ERROR vigem_target_add(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 {
-    if (!vigem)
-        return VIGEM_ERROR_BUS_INVALID_HANDLE;
-
-    if (!target)
-        return VIGEM_ERROR_INVALID_TARGET;
-
-    if (vigem->hBusDevice == INVALID_HANDLE_VALUE)
-        return VIGEM_ERROR_BUS_NOT_FOUND;
-
-    if (target->State == VIGEM_TARGET_NEW)
-        return VIGEM_ERROR_TARGET_UNINITIALIZED;
-
-    if (target->State == VIGEM_TARGET_CONNECTED)
-        return VIGEM_ERROR_ALREADY_CONNECTED;
-
+    VIGEM_ERROR error = VIGEM_ERROR_NO_FREE_SLOT;
     DWORD transferred = 0;
     VIGEM_PLUGIN_TARGET plugin;
-    OVERLAPPED lOverlapped = {};
-    lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    VIGEM_WAIT_DEVICE_READY devReady;
+    OVERLAPPED olPlugIn = { 0 };
+    olPlugIn.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+    OVERLAPPED olWait = { 0 };
+    olWait.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
-    for (target->SerialNo = 1; target->SerialNo <= VIGEM_TARGETS_MAX; target->SerialNo++)
-    {
-        VIGEM_PLUGIN_TARGET_INIT(&plugin, target->SerialNo, target->Type);
-
-        plugin.VendorId = target->VendorId;
-        plugin.ProductId = target->ProductId;
-
-        DeviceIoControl(
-            vigem->hBusDevice,
-            IOCTL_VIGEM_PLUGIN_TARGET,
-            &plugin,
-            plugin.Size,
-            nullptr,
-            0,
-            &transferred,
-            &lOverlapped
-        );
-
-        if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
+    do {
+        if (!vigem)
         {
-            target->State = VIGEM_TARGET_CONNECTED;
-            CloseHandle(lOverlapped.hEvent);
-
-            return VIGEM_ERROR_NONE;
+            error = VIGEM_ERROR_BUS_INVALID_HANDLE;
+        	break;
         }
-    }
 
-    CloseHandle(lOverlapped.hEvent);
+        if (!target)
+        {
+            error = VIGEM_ERROR_INVALID_TARGET;
+        	break;
+        }
 
-    return VIGEM_ERROR_NO_FREE_SLOT;
+        if (vigem->hBusDevice == INVALID_HANDLE_VALUE)
+        {
+            error = VIGEM_ERROR_BUS_NOT_FOUND;
+        	break;
+        }
+
+        if (target->State == VIGEM_TARGET_NEW)
+        {
+            error = VIGEM_ERROR_TARGET_UNINITIALIZED;
+        	break;
+        }
+
+        if (target->State == VIGEM_TARGET_CONNECTED)
+        {
+            error = VIGEM_ERROR_ALREADY_CONNECTED;
+        	break;
+        }       
+
+    	//
+    	// TODO: this is mad stupid, redesign, so that the bus fills the assigned slot
+    	// 
+        for (target->SerialNo = 1; target->SerialNo <= VIGEM_TARGETS_MAX; target->SerialNo++)
+        {
+	        VIGEM_PLUGIN_TARGET_INIT(&plugin, target->SerialNo, target->Type);
+
+	        plugin.VendorId = target->VendorId;
+	        plugin.ProductId = target->ProductId;
+
+        	/*
+        	 * Request plugin of device. This is an inherently asynchronous operation,
+        	 * which is addressed differently through the history of the driver design.
+        	 * Pre-v1.17 this request was kept pending until the child was deemed operational
+        	 * which unfortunately causes synchronization issues on some systems.
+        	 * Starting with v1.17 "waiting" for full power-up is done with an additional 
+        	 * IOCTL that is sent immediately after and kept pending until the driver
+        	 * reports that the device can receive report updates. The following section
+        	 * and error handling is designed to achieve transparent backwards compatibility
+        	 * to not break applications using the pre-v1.17 client SDK. This is not a 100%
+        	 * perfect and can cause other functions to fail if called too soon but
+        	 * hopefully the applications will just ignore these errors and retry ;)
+        	 */
+	        DeviceIoControl(
+		        vigem->hBusDevice,
+		        IOCTL_VIGEM_PLUGIN_TARGET,
+		        &plugin,
+		        plugin.Size,
+		        nullptr,
+		        0,
+		        &transferred,
+		        &olPlugIn
+	        );
+
+        	//
+        	// This should return fairly immediately >=v1.17
+        	// 
+	        if (GetOverlappedResult(vigem->hBusDevice, &olPlugIn, &transferred, TRUE) != 0)
+	        {
+	        	/*
+	        	 * This function is announced to be blocking/synchronous, a concept that 
+	        	 * doesn't reflect the way the bus driver/PNP manager bring child devices
+	        	 * to life. Therefore, we send another IOCTL which will be kept pending 
+	        	 * until the bus driver has been notified that the child device has
+	        	 * reached a state that is deemed operational. This request is only 
+	        	 * supported on drivers v1.17 or higher, so gracefully cause errors
+	        	 * of this call as a potential success and keep the device plugged in.
+	        	 */
+		        VIGEM_WAIT_DEVICE_READY_INIT(&devReady, plugin.SerialNo);
+
+		        DeviceIoControl(
+			        vigem->hBusDevice,
+			        IOCTL_VIGEM_WAIT_DEVICE_READY,
+			        &devReady,
+			        devReady.Size,
+			        nullptr,
+			        0,
+			        &transferred,
+			        &olWait
+		        );
+
+		        if (GetOverlappedResult(vigem->hBusDevice, &olWait, &transferred, TRUE) != 0)
+		        {
+			        target->State = VIGEM_TARGET_CONNECTED;
+
+			        error = VIGEM_ERROR_NONE;
+			        break;
+		        }
+	        	
+		        //
+		        // Backwards compatibility with version pre-1.17, where this IOCTL doesn't exist
+		        // 
+		        if (GetLastError() == ERROR_INVALID_PARAMETER)
+		        {
+			        target->State = VIGEM_TARGET_CONNECTED;
+
+			        error = VIGEM_ERROR_NONE;
+			        break;
+		        }
+
+		        //
+		        // Don't leave device connected if the wait call failed
+		        // 
+		        error = vigem_target_remove(vigem, target);
+		        break;
+	        }
+        }
+    } while (false);
+
+    if (olPlugIn.hEvent)
+	    CloseHandle(olPlugIn.hEvent);
+
+    if (olWait.hEvent)
+	    CloseHandle(olWait.hEvent);
+
+    return error;
 }
 
 VIGEM_ERROR vigem_target_add_async(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, PFN_VIGEM_TARGET_ADD_RESULT result)
 {
-    if (!vigem)
-        return VIGEM_ERROR_BUS_INVALID_HANDLE;
+	if (!vigem)
+		return VIGEM_ERROR_BUS_INVALID_HANDLE;
 
-    if (!target)
-        return VIGEM_ERROR_INVALID_TARGET;
+	if (!target)
+		return VIGEM_ERROR_INVALID_TARGET;
 
-    if (vigem->hBusDevice == INVALID_HANDLE_VALUE)
-        return VIGEM_ERROR_BUS_NOT_FOUND;
+	if (vigem->hBusDevice == INVALID_HANDLE_VALUE)
+		return VIGEM_ERROR_BUS_NOT_FOUND;
 
-    if (target->State == VIGEM_TARGET_NEW)
-        return VIGEM_ERROR_TARGET_UNINITIALIZED;
+	if (target->State == VIGEM_TARGET_NEW)
+		return VIGEM_ERROR_TARGET_UNINITIALIZED;
 
-    if (target->State == VIGEM_TARGET_CONNECTED)
-        return VIGEM_ERROR_ALREADY_CONNECTED;
+	if (target->State == VIGEM_TARGET_CONNECTED)
+		return VIGEM_ERROR_ALREADY_CONNECTED;
 
-    std::thread _async{ [](
-        PVIGEM_TARGET _Target,
-        PVIGEM_CLIENT _Client,
-        PFN_VIGEM_TARGET_ADD_RESULT _Result)
-    {
-        DWORD transferred = 0;
-        VIGEM_PLUGIN_TARGET plugin;
-        OVERLAPPED lOverlapped = {};
-        lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	std::thread _async{
+		[](
+		PVIGEM_TARGET _Target,
+		PVIGEM_CLIENT _Client,
+		PFN_VIGEM_TARGET_ADD_RESULT _Result)
+		{
+			const auto error = vigem_target_add(_Client, _Target);
 
-        for (_Target->SerialNo = 1; _Target->SerialNo <= VIGEM_TARGETS_MAX; _Target->SerialNo++)
-        {
-            VIGEM_PLUGIN_TARGET_INIT(&plugin, _Target->SerialNo, _Target->Type);
+			_Result(_Client, _Target, error);
+		},
+		target, vigem, result
+	};
 
-            plugin.VendorId = _Target->VendorId;
-            plugin.ProductId = _Target->ProductId;
+	_async.detach();
 
-            DeviceIoControl(
-                _Client->hBusDevice,
-                IOCTL_VIGEM_PLUGIN_TARGET,
-                &plugin,
-                plugin.Size,
-                nullptr,
-                0,
-                &transferred,
-                &lOverlapped
-            );
-
-            if (GetOverlappedResult(_Client->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
-            {
-                _Target->State = VIGEM_TARGET_CONNECTED;
-                CloseHandle(lOverlapped.hEvent);
-
-                if (_Result)
-                    _Result(_Client, _Target, VIGEM_ERROR_NONE);
-
-                return;
-            }
-        }
-
-        CloseHandle(lOverlapped.hEvent);
-
-        if (_Result)
-            _Result(_Client, _Target, VIGEM_ERROR_NO_FREE_SLOT);
-
-    }, target, vigem, result };
-
-    _async.detach();
-
-    return VIGEM_ERROR_NONE;
+	return VIGEM_ERROR_NONE;
 }
 
 VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
@@ -525,7 +516,7 @@ VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 
     DWORD transfered = 0;
     VIGEM_UNPLUG_TARGET unplug;
-    OVERLAPPED lOverlapped = {};
+    OVERLAPPED lOverlapped = { 0 };
     lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
     VIGEM_UNPLUG_TARGET_INIT(&unplug, target->SerialNo);
@@ -554,109 +545,6 @@ VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
     return VIGEM_ERROR_REMOVAL_FAILED;
 }
 
-// Num of items in Notification DeviceIOControl queue (at any time there should be at least one extra call waiting for the new events or there is danger that notification events are lost).
-// The size of this queue is based on "scientific" experimentals and estimations (few games seem to sometimes flood the FFB driver interface).
-#define NOTIFICATION_OVERLAPPED_QUEUE_SIZE 6
-
-void vigem_notification_thread_worker(
-	PVIGEM_CLIENT client,
-	PVIGEM_TARGET target,
-	std::unique_ptr <std::vector<std::unique_ptr<NotificationRequestPayload>>> pNotificationRequestPayload
-)
-{
-	int   idx;
-	DWORD error;
-
-	HANDLE waitObjects[2];
-
-	BOOL  devIoResult[NOTIFICATION_OVERLAPPED_QUEUE_SIZE];
-	DWORD lastIoError[NOTIFICATION_OVERLAPPED_QUEUE_SIZE];
-	DWORD transferred[NOTIFICATION_OVERLAPPED_QUEUE_SIZE];
-	OVERLAPPED lOverlapped[NOTIFICATION_OVERLAPPED_QUEUE_SIZE];
-
-	int currentOverlappedIdx;
-	int futureOverlappedIdx;
-
-	memset(lOverlapped, 0, sizeof(lOverlapped));
-	for(idx = 0; idx < NOTIFICATION_OVERLAPPED_QUEUE_SIZE; idx++)
-		lOverlapped[idx].hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
-
-	waitObjects[0] = target->cancelNotificationThreadEvent;
-
-	currentOverlappedIdx = 0;
-	futureOverlappedIdx = NOTIFICATION_OVERLAPPED_QUEUE_SIZE - 1;
-
-	// Send out DeviceIOControl calls to wait for incoming feedback notifications. Use N pending requests to make sure that events are not lost even when application would flood FFB events.
-	// The order of DeviceIoControl calls and GetOverlappedResult requests is important to ensure that feedback callback function is called in correct order (ie. FIFO buffer with FFB events).
-	// Note! This loop doesn't call DevIo for the last lOverlapped item on purpose. The DO while loop does it as a first step (futureOverlappedIdx=NOTIFICATION_OVERLAPPED_QUEUE_SIZE-1 in the first loop round).
-	for (idx = 0; idx < NOTIFICATION_OVERLAPPED_QUEUE_SIZE-1; idx++)
-	{
-		devIoResult[idx] = DeviceIoControl(client->hBusDevice,
-			(*pNotificationRequestPayload)[idx]->ioControlCode,
-			(*pNotificationRequestPayload)[idx]->lpPayloadBuffer,
-			(*pNotificationRequestPayload)[idx]->payloadBufferSize,
-			(*pNotificationRequestPayload)[idx]->lpPayloadBuffer,
-			(*pNotificationRequestPayload)[idx]->payloadBufferSize,
-			&transferred[idx],
-			&lOverlapped[idx]);
-
-		lastIoError[idx] = GetLastError();
-	}
-
-	do
-	{
-		// Before reading data from "current overlapped request" then send a new DeviceIoControl request to wait for upcoming new FFB events (ring buffer of overlapped objects).
-		devIoResult[futureOverlappedIdx] = DeviceIoControl(client->hBusDevice,
-			(*pNotificationRequestPayload)[futureOverlappedIdx]->ioControlCode,
-			(*pNotificationRequestPayload)[futureOverlappedIdx]->lpPayloadBuffer,
-			(*pNotificationRequestPayload)[futureOverlappedIdx]->payloadBufferSize,
-			(*pNotificationRequestPayload)[futureOverlappedIdx]->lpPayloadBuffer,
-			(*pNotificationRequestPayload)[futureOverlappedIdx]->payloadBufferSize,
-			&transferred[futureOverlappedIdx],
-			&lOverlapped[futureOverlappedIdx]);
-
-		lastIoError[futureOverlappedIdx] = GetLastError();
-
-		// currentOverlappedIdx is an index to the "oldest" DeviceIOControl call, so it will receive the next FFB event in a FFB sequence (in case there are multiple FFB events coming in)
-		if (!devIoResult[currentOverlappedIdx])
-		{
-			if (lastIoError[currentOverlappedIdx] == ERROR_IO_PENDING)
-			{
-				// DeviceIoControl is not yet completed to return all data. Wait for overlapped completion and thread cancellation events
-				waitObjects[1] = lOverlapped[currentOverlappedIdx].hEvent;
-				error = WaitForMultipleObjects(2, waitObjects, FALSE, INFINITE);
-				if (error != (WAIT_OBJECT_0 + 1))
-					break; // Cancel event signaled or error while waiting for events (maybe handles were closed?). Quit this thread worker
-
-				// At this point overlapped event was signaled by a device driver and data is ready and waiting for in a buffer. The next GetOverlappedResult call should return immediately.
-			}
-			else
-				// Hmm... DeviceIoControl failed and is not just in async pending state. Quit the notification thread because the virtual controller may be in unknown state or device handles were closed
-				break;
-		}
-
-		if (GetOverlappedResult(client->hBusDevice, &lOverlapped[currentOverlappedIdx], &transferred[currentOverlappedIdx], TRUE) != 0)
-			(*pNotificationRequestPayload)[currentOverlappedIdx]->ProcessNotificationRequest(client, target);
-
-		if (currentOverlappedIdx >= NOTIFICATION_OVERLAPPED_QUEUE_SIZE-1)
-			currentOverlappedIdx = 0;
-		else
-			currentOverlappedIdx++;
-
-		if (futureOverlappedIdx >= NOTIFICATION_OVERLAPPED_QUEUE_SIZE-1)
-			futureOverlappedIdx = 0;
-		else
-			futureOverlappedIdx++;
-	} while (target->closingNotificationThreads != TRUE && target->Notification != nullptr);
-
-	for (idx = 0; idx < NOTIFICATION_OVERLAPPED_QUEUE_SIZE; idx++)
-		if(lOverlapped[idx].hEvent)
-			CloseHandle(lOverlapped[idx].hEvent);
-
-	// Caller created the unique_ptr object, but this thread worker function should delete the object because it is no longer needed (thread specific object)
-	pNotificationRequestPayload.reset();
-}
-
 VIGEM_ERROR vigem_target_x360_register_notification(
     PVIGEM_CLIENT vigem,
     PVIGEM_TARGET target,
@@ -682,26 +570,70 @@ VIGEM_ERROR vigem_target_x360_register_notification(
     target->Notification = reinterpret_cast<FARPROC>(notification);
     target->NotificationUserData = userData;
 
-	if (target->cancelNotificationThreadEvent == 0)
-		target->cancelNotificationThreadEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
-	else
-		ResetEvent(target->cancelNotificationThreadEvent);
+    if (target->cancelNotificationThreadEvent == nullptr)
+	    target->cancelNotificationThreadEvent = CreateEvent(
+            nullptr, 
+            TRUE, 
+            FALSE, 
+            nullptr
+        );
+    else
+	    ResetEvent(target->cancelNotificationThreadEvent);
 
-	if(target->notificationThreadList == nullptr)
-		target->notificationThreadList = std::make_unique<std::vector<std::thread>>();
+    std::thread _async{
+	    [](
+	    PVIGEM_TARGET _Target,
+	    PVIGEM_CLIENT _Client,
+	    LPVOID _UserData)
+	    {
+		    DWORD transferred = 0;
+		    OVERLAPPED lOverlapped = {0};
+		    lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
-	target->closingNotificationThreads = FALSE;
+		    XUSB_REQUEST_NOTIFICATION xrn;
+		    XUSB_REQUEST_NOTIFICATION_INIT(&xrn, _Target->SerialNo);
 
-	std::unique_ptr<std::vector<std::unique_ptr<NotificationRequestPayload>>> payloadVector = std::make_unique<std::vector<std::unique_ptr<NotificationRequestPayload>>>();
-	payloadVector->reserve(NOTIFICATION_OVERLAPPED_QUEUE_SIZE);
-	for (int idx = 0; idx < NOTIFICATION_OVERLAPPED_QUEUE_SIZE; idx++)
-		payloadVector->push_back(std::make_unique<NotificationRequestPayloadX360>(target->SerialNo));
+		    do
+		    {
+			    DeviceIoControl(
+				    _Client->hBusDevice,
+				    IOCTL_XUSB_REQUEST_NOTIFICATION,
+				    &xrn,
+				    xrn.Size,
+				    &xrn,
+				    xrn.Size,
+				    &transferred,
+				    &lOverlapped
+			    );
 
-	// Nowadays there is only one background thread listening for incoming FFB events, but there used to be more. This code still uses notificationThreadList vector even
-	// when there is only one item in the vector. If it is someday find out that this logic needs more background threads then it is easy to do because the thread vector is already in place.
-	//for (int i = 0; i < 1; i++)
-	target->notificationThreadList->emplace_back(std::thread(&vigem_notification_thread_worker, vigem, target, std::move(payloadVector)));
+			    if (GetOverlappedResult(_Client->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
+			    {
+				    if (_Target->Notification == nullptr)
+				    {
+					    CloseHandle(lOverlapped.hEvent);
+					    return;
+				    }
 
+				    reinterpret_cast<PFN_VIGEM_X360_NOTIFICATION>(_Target->Notification)(
+					    _Client, _Target, xrn.LargeMotor, xrn.SmallMotor, xrn.LedNumber, _UserData
+				    );
+
+				    continue;
+			    }
+
+			    if (GetLastError() == ERROR_ACCESS_DENIED || GetLastError() == ERROR_OPERATION_ABORTED)
+			    {
+				    CloseHandle(lOverlapped.hEvent);
+				    return;
+			    }
+		    }
+		    while (TRUE);
+	    },
+	    target, vigem, userData
+    };
+
+    _async.detach();
+	
     return VIGEM_ERROR_NONE;
 }
 
@@ -731,45 +663,83 @@ VIGEM_ERROR vigem_target_ds4_register_notification(
     target->NotificationUserData = userData;
 
 	if (target->cancelNotificationThreadEvent == 0)
-		target->cancelNotificationThreadEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
+		target->cancelNotificationThreadEvent = CreateEvent(
+            nullptr, 
+            TRUE, 
+            FALSE,
+            nullptr
+        );
 	else
 		ResetEvent(target->cancelNotificationThreadEvent);
 
-	if (target->notificationThreadList == nullptr)
-		target->notificationThreadList = std::make_unique<std::vector<std::thread>>();
+    std::thread _async{
+	    [](
+	    PVIGEM_TARGET _Target,
+	    PVIGEM_CLIENT _Client,
+	    LPVOID _UserData)
+	    {
+		    DWORD transferred = 0;
+		    OVERLAPPED lOverlapped = {0};
+		    lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
-	target->closingNotificationThreads = FALSE;
+		    DS4_REQUEST_NOTIFICATION ds4rn;
+		    DS4_REQUEST_NOTIFICATION_INIT(&ds4rn, _Target->SerialNo);
 
-	std::unique_ptr<std::vector<std::unique_ptr<NotificationRequestPayload>>> payloadVector = std::make_unique<std::vector<std::unique_ptr<NotificationRequestPayload>>>();
-	payloadVector->reserve(NOTIFICATION_OVERLAPPED_QUEUE_SIZE);
-	for (int idx = 0; idx < NOTIFICATION_OVERLAPPED_QUEUE_SIZE; idx++)
-		payloadVector->push_back(std::make_unique<NotificationRequestPayloadDS4>(target->SerialNo));
+		    do
+		    {
+			    DeviceIoControl(
+				    _Client->hBusDevice,
+				    IOCTL_DS4_REQUEST_NOTIFICATION,
+				    &ds4rn,
+				    ds4rn.Size,
+				    &ds4rn,
+				    ds4rn.Size,
+				    &transferred,
+				    &lOverlapped
+			    );
 
-	//for (int i = 0; i < 1; i++)
-	target->notificationThreadList->emplace_back(std::thread(&vigem_notification_thread_worker, vigem, target, std::move(payloadVector)));
+			    if (GetOverlappedResult(_Client->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
+			    {
+				    if (_Target->Notification == nullptr)
+				    {
+					    CloseHandle(lOverlapped.hEvent);
+					    return;
+				    }
 
+				    reinterpret_cast<PFN_VIGEM_DS4_NOTIFICATION>(_Target->Notification)(
+					    _Client, _Target, ds4rn.Report.LargeMotor,
+					    ds4rn.Report.SmallMotor,
+					    ds4rn.Report.LightbarColor, _UserData
+				    );
+
+				    continue;
+			    }
+
+			    if (GetLastError() == ERROR_ACCESS_DENIED || GetLastError() == ERROR_OPERATION_ABORTED)
+			    {
+				    CloseHandle(lOverlapped.hEvent);
+				    return;
+			    }
+		    }
+		    while (TRUE);
+	    },
+	    target, vigem, userData
+    };
+
+    _async.detach();
+	
     return VIGEM_ERROR_NONE;
 }
 
 void vigem_target_x360_unregister_notification(PVIGEM_TARGET target)
-{
-	target->closingNotificationThreads = TRUE;
-
+{	
 	if (target->cancelNotificationThreadEvent != 0)
 		SetEvent(target->cancelNotificationThreadEvent);
-
-	if (target->notificationThreadList != nullptr)
-	{
-		// Wait for completion of all notification threads before cleaning up target object and Notification function pointer (a thread may be in the middle of handling a notification request, so close it cleanly)
-		std::for_each(target->notificationThreadList->begin(), target->notificationThreadList->end(), std::mem_fn(&std::thread::join));
-		target->notificationThreadList.reset();
-		target->notificationThreadList = nullptr;
-	}
-	
-	if (target->cancelNotificationThreadEvent != 0)
+    
+	if (target->cancelNotificationThreadEvent != nullptr)
 	{
 		CloseHandle(target->cancelNotificationThreadEvent);
-		target->cancelNotificationThreadEvent = 0;
+		target->cancelNotificationThreadEvent = nullptr;
 	}
 
 	target->Notification = nullptr;
@@ -820,7 +790,7 @@ VIGEM_ERROR vigem_target_x360_update(
         return VIGEM_ERROR_INVALID_TARGET;
 
     DWORD transferred = 0;
-    OVERLAPPED lOverlapped = {};
+    OVERLAPPED lOverlapped = { 0 };
     lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
     XUSB_SUBMIT_REPORT xsr;
@@ -872,7 +842,7 @@ VIGEM_ERROR vigem_target_ds4_update(
         return VIGEM_ERROR_INVALID_TARGET;
 
     DWORD transferred = 0;
-    OVERLAPPED lOverlapped = {};
+    OVERLAPPED lOverlapped = { 0 };
     lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
     DS4_SUBMIT_REPORT dsr;
@@ -903,6 +873,67 @@ VIGEM_ERROR vigem_target_ds4_update(
     CloseHandle(lOverlapped.hEvent);
 
     return VIGEM_ERROR_NONE;
+}
+
+VIGEM_ERROR vigem_target_ds4_update_ex(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, DS4_REPORT_EX report)
+{
+	if (!vigem)
+		return VIGEM_ERROR_BUS_INVALID_HANDLE;
+
+	if (!target)
+		return VIGEM_ERROR_INVALID_TARGET;
+
+	if (vigem->hBusDevice == INVALID_HANDLE_VALUE)
+		return VIGEM_ERROR_BUS_NOT_FOUND;
+
+	if (target->SerialNo == 0)
+		return VIGEM_ERROR_INVALID_TARGET;
+
+	DWORD transferred = 0;
+	OVERLAPPED lOverlapped = {0};
+	lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+
+	DS4_SUBMIT_REPORT_EX dsr;
+	DS4_SUBMIT_REPORT_EX_INIT(&dsr, target->SerialNo);
+
+	dsr.Report = report;
+
+	DeviceIoControl(
+		vigem->hBusDevice,
+		IOCTL_DS4_SUBMIT_REPORT, // Same IOCTL, just different size
+		&dsr,
+		dsr.Size,
+		nullptr,
+		0,
+		&transferred,
+		&lOverlapped
+	);
+
+	if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) == 0)
+	{
+		if (GetLastError() == ERROR_ACCESS_DENIED)
+		{
+			CloseHandle(lOverlapped.hEvent);
+			return VIGEM_ERROR_INVALID_TARGET;
+		}
+
+		/*
+		 * NOTE: this will not happen on v1.16 due to NTSTATUS accidentally been set
+		 * as STATUS_SUCCESS when the submitted buffer size wasn't the expected one.
+		 * For backwards compatibility this function will silently fail (not cause
+		 * report updates) when run with the v1.16 driver. This API was introduced 
+		 * with v1.17 so it won't affect existing applications built before.
+		 */
+		if (GetLastError() == ERROR_INVALID_PARAMETER)
+		{
+			CloseHandle(lOverlapped.hEvent);
+			return VIGEM_ERROR_NOT_SUPPORTED;
+		}
+	}
+
+	CloseHandle(lOverlapped.hEvent);
+
+	return VIGEM_ERROR_NONE;
 }
 
 ULONG vigem_target_get_index(PVIGEM_TARGET target)
@@ -938,11 +969,11 @@ VIGEM_ERROR vigem_target_x360_get_user_index(
     if (target->SerialNo == 0 || target->Type != Xbox360Wired)
         return VIGEM_ERROR_INVALID_TARGET;
 
-    if (!index)
-        return VIGEM_ERROR_INVALID_PARAMETER;
+	if (!index)
+		return VIGEM_ERROR_INVALID_PARAMETER;
 
     DWORD transferred = 0;
-    OVERLAPPED lOverlapped = {};
+    OVERLAPPED lOverlapped = { 0 };
     lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
     XUSB_GET_USER_INDEX gui;
