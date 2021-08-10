@@ -8,7 +8,7 @@ C/C++ developer SDK for communication with [`ViGEmBus`](https://github.com/ViGEm
 
 **TL;DR:** use this if you want to create virtual game controllers from your C/C++ application 😊
 
-The `ViGEmClient` provides a small library exposing a simple API for creating and "feeding" (periodically updating it with new input data) virtual game controllers through [`ViGEmBus`](https://github.com/ViGEm/ViGEmBus). The library takes care of discovering a compatible instance of the bus driver on the users system and abstracting away the inner workings of the emulation framework. You can use and distribute it with your project as either a static component (recommended) or a dynamic library (DLL). This library is **not** thread-safe, ensure proper synchronization in a multi-threaded environment.
+The `ViGEmClient` provides a small library exposing a simple API for creating and "feeding" (periodically updating it with new input data) virtual game controllers through [`ViGEmBus`](https://github.com/ViGEm/ViGEmBus). The library takes care of discovering a compatible instance of the bus driver on the user's system and abstracting away the inner workings of the emulation framework. You can use and distribute it with your project as either a static component (recommended) or a dynamic library (DLL). This library is **not** thread-safe, ensure proper synchronization in a multi-threaded environment.
 
 ## How to build
 
@@ -33,7 +33,7 @@ Please respect that the GitHub issue tracker isn't a helpdesk. We offer a [Disco
 
 ### Integration
 
-Integrating this library into your project is pretty straight-forward, there are no additional 3rd party dependencies. You can either `git submodule` or `git subtree` this repository directly into your source tree or use the provided [`vcpkg`](https://github.com/microsoft/vcpkg) package manager integration [found here](https://github.com/ViGEm/ViGEmClient.vcpkg) (recommended, can be updates with ease). The library tries to handle driver compatibility internally so static linking is recommended to avoid DLL hell 😊
+Integrating this library into your project is pretty straight-forward, there are no additional 3rd party dependencies. You can either `git submodule` or `git subtree` this repository directly into your source tree or use the provided [`vcpkg`](https://github.com/microsoft/vcpkg) package manager integration [found here](https://github.com/ViGEm/ViGEmClient.vcpkg) (recommended, can be updated with ease). The library tries to handle driver compatibility internally so static linking is recommended to avoid DLL hell 😊
 
 ### API usage
 
