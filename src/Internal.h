@@ -66,6 +66,7 @@ typedef struct _VIGEM_TARGET_T
     VIGEM_TARGET_TYPE Type;
     FARPROC Notification;
     LPVOID NotificationUserData;
+    BOOL IsWaitReadyUnsupported;
 
 	HANDLE cancelNotificationThreadEvent;
 } VIGEM_TARGET;
