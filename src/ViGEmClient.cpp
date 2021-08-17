@@ -297,7 +297,7 @@ bool vigem_target_is_waitable_add_supported(PVIGEM_TARGET target)
     // Should never pass in an invalid target but doesn't hurt to check.
     //
     if (!target)
-        return false;
+        return FALSE;
 
     // TODO: Replace all this with a more robust version check system
     return !target->IsWaitReadyUnsupported;

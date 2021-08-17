@@ -176,9 +176,9 @@ extern "C" {
      *
      * @param   target  The PVIGEM_TARGET to check against.
      *
-     * @returns	A bool, true if the device wait ready ioctl is supported (1.17+) or false if not ( =< 1.16)
+     * @returns	A BOOLEAN, true if the device wait ready ioctl is supported (1.17+) or false if not ( =< 1.16)
      */
-    VIGEM_API bool vigem_target_is_waitable_add_supported(PVIGEM_TARGET target);
+    VIGEM_API BOOLEAN vigem_target_is_waitable_add_supported(PVIGEM_TARGET target);
 
     /**
      * Allocates an object representing an Xbox 360 Controller device.
