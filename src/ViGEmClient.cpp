@@ -290,7 +290,7 @@ void vigem_disconnect(PVIGEM_CLIENT vigem)
     }
 }
 
-bool vigem_target_is_waitable_add_supported(PVIGEM_TARGET target)
+BOOLEAN vigem_target_is_waitable_add_supported(PVIGEM_TARGET target)
 {
     //
     // Safety check to make people use the older functions and not cause issues
