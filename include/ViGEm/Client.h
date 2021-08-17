@@ -167,6 +167,20 @@ extern "C" {
     VIGEM_API void vigem_disconnect(PVIGEM_CLIENT vigem);
 
     /**
+     * A useful utility function to check if pre 1.17 driver, meant to be replaced in the future by
+     *          more robust version checks, only able to be checked after at least one device has been
+     *          successfully plugged in.
+     *
+     * @author	Jason "megadrago88" Hart
+     * @date	17.08.2021
+     *
+     * @param   target  The PVIGEM_TARGET to check against.
+     *
+     * @returns	A BOOLEAN, true if the device wait ready ioctl is supported (1.17+) or false if not ( =< 1.16)
+     */
+    VIGEM_API BOOLEAN vigem_target_is_waitable_add_supported(PVIGEM_TARGET target);
+
+    /**
      * Allocates an object representing an Xbox 360 Controller device.
      *
      * @author	Benjamin "Nefarius" Höglinger-Stelzer

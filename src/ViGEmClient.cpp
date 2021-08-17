@@ -290,6 +290,19 @@ void vigem_disconnect(PVIGEM_CLIENT vigem)
     }
 }
 
+BOOLEAN vigem_target_is_waitable_add_supported(PVIGEM_TARGET target)
+{
+    //
+    // Safety check to make people use the older functions and not cause issues
+    // Should never pass in an invalid target but doesn't hurt to check.
+    //
+    if (!target)
+        return FALSE;
+
+    // TODO: Replace all this with a more robust version check system
+    return !target->IsWaitReadyUnsupported;
+}
+
 PVIGEM_TARGET vigem_target_x360_alloc(void)
 {
     const auto target = VIGEM_TARGET_ALLOC_INIT(Xbox360Wired);
@@ -439,6 +452,7 @@ VIGEM_ERROR vigem_target_add(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 		        if (GetLastError() == ERROR_INVALID_PARAMETER)
 		        {
 			        target->State = VIGEM_TARGET_CONNECTED;
+                    target->IsWaitReadyUnsupported = true;
 
 			        error = VIGEM_ERROR_NONE;
 			        break;
