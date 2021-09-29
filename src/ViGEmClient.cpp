@@ -1074,9 +1074,9 @@ VIGEM_ERROR vigem_target_x360_get_output(
 
     CloseHandle(lOverlapped.hEvent);
 
-    (*output).LargeMotor = xrn.LargeMotor;
-    (*output).SmallMotor = xrn.SmallMotor;
-    (*output).LedNumber = xrn.LedNumber;
+    output->LargeMotor = xrn.LargeMotor;
+    output->SmallMotor = xrn.SmallMotor;
+    output->LedNumber = xrn.LedNumber;
 
     return VIGEM_ERROR_NONE;
 }
@@ -1127,9 +1127,9 @@ VIGEM_ERROR vigem_target_ds4_get_output(
 
     CloseHandle(lOverlapped.hEvent);
 
-    (*output).LargeMotor = ds4rn.Report.LargeMotor;
-    (*output).SmallMotor = ds4rn.Report.SmallMotor;
-    (*output).LightbarColor = ds4rn.Report.LightbarColor;
+    output->LargeMotor = ds4rn.Report.LargeMotor;
+    output->SmallMotor = ds4rn.Report.SmallMotor;
+    output->LightbarColor = ds4rn.Report.LightbarColor;
 
     return VIGEM_ERROR_NONE;
 }
