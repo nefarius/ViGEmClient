@@ -1107,7 +1107,7 @@ VIGEM_ERROR vigem_target_ds4_get_output(
     lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
     DS4_REQUEST_NOTIFICATION ds4rn;
-    DS4_REQUEST_NOTIFICATION_INIT(&ds4rn, _Target->SerialNo);
+    DS4_REQUEST_NOTIFICATION_INIT(&ds4rn, target->SerialNo);
 
     DeviceIoControl(
         vigem->hBusDevice,
