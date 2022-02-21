@@ -19,6 +19,7 @@
 /build/bin/Debug
 /build/obj/Debug
 /bin
+out/*
 /sys/x64
 /x64
 *.user
