@@ -945,7 +945,6 @@ VIGEM_ERROR vigem_target_x360_get_user_index(
 VIGEM_ERROR vigem_target_ds4_await_output_report(
 	PVIGEM_CLIENT vigem,
 	PVIGEM_TARGET target,
-	DWORD milliseconds,
 	PDS4_OUTPUT_BUFFER buffer
 )
 {
@@ -982,7 +981,7 @@ retry:
 		&lOverlapped
 	);
 
-	if (GetOverlappedResultEx(vigem->hBusDevice, &lOverlapped, &transferred, milliseconds, FALSE) == 0)
+	if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) == 0)
 	{
 		const DWORD error = GetLastError();
 		DEVICE_IO_CONTROL_END;
