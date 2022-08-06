@@ -93,6 +93,10 @@ extern "C" {
         // An unexpected Win32 API error occurred. Call GetLastError() for details.
         // 
     	VIGEM_ERROR_WINAPI = 0xE0000017,
+        //
+        // The specified timeout has been reached.
+        // 
+    	VIGEM_ERROR_TIMED_OUT = 0xE0000018,
 
     } VIGEM_ERROR;
 
@@ -494,7 +498,26 @@ extern "C" {
      */
     VIGEM_API VIGEM_ERROR vigem_target_x360_get_user_index(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, PULONG index);
 
-    VIGEM_API VIGEM_ERROR vigem_target_ds4_await_output_report(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, PDS4_OUTPUT_BUFFER buffer);
+    /**
+     * Waits until there's one or more pending raw output reports available to consume. This
+     * function blocks until either data becomes available or the specified timeout has been
+     * reached. A timeout returns its own error code. The waiting is event-based, meaning that as
+     * soon as a data packet is pending, this call returns a copy of the entire buffer. Each call
+     * returns a packet in the exact order it arrived in the driver. It is recommended to repeatedly
+     * call this function in a thread with a timeout of a few hundred milliseconds to preserve CPU
+     * cycles. The call aborts with an error code if the target gets unplugged in parallel.
+     *
+     * @author	Benjamin "Nefarius" Höglinger-Stelzer
+     * @date	06.08.2022
+     *
+     * @param 	vigem			The driver connection object.
+     * @param 	target			The target device object.
+     * @param 	milliseconds	The timeout in milliseconds.
+     * @param 	buffer			The fixed-size 64-bytes output report buffer that gets written to.
+     *
+     * @returns	A VIGEM_ERROR.
+     */
+    VIGEM_API VIGEM_ERROR vigem_target_ds4_await_output_report(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, DWORD milliseconds, PDS4_OUTPUT_BUFFER buffer);
 
 #ifdef __cplusplus
 }

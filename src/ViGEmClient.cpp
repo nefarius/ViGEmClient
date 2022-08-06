@@ -945,6 +945,7 @@ VIGEM_ERROR vigem_target_x360_get_user_index(
 VIGEM_ERROR vigem_target_ds4_await_output_report(
 	PVIGEM_CLIENT vigem,
 	PVIGEM_TARGET target,
+	DWORD milliseconds,
 	PDS4_OUTPUT_BUFFER buffer
 )
 {
@@ -981,12 +982,18 @@ retry:
 		&lOverlapped
 	);
 
-	if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) == 0)
+	if (GetOverlappedResultEx(vigem->hBusDevice, &lOverlapped, &transferred, milliseconds, FALSE) == 0)
 	{
 		if (GetLastError() == ERROR_ACCESS_DENIED)
 		{
 			DEVICE_IO_CONTROL_END;
 			return VIGEM_ERROR_INVALID_TARGET;
+		}
+
+		if (GetLastError() == ERROR_IO_INCOMPLETE)
+		{
+			DEVICE_IO_CONTROL_END;
+			return VIGEM_ERROR_TIMED_OUT;
 		}
 
 		if (GetLastError() == ERROR_SUCCESS && await.SerialNo != target->SerialNo)
