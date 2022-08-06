@@ -945,7 +945,7 @@ VIGEM_ERROR vigem_target_x360_get_user_index(
 VIGEM_ERROR vigem_target_ds4_await_output_report(
 	PVIGEM_CLIENT vigem,
 	PVIGEM_TARGET target,
-	PDS4_AWAIT_OUTPUT_BUFFER buffer
+	PDS4_OUTPUT_BUFFER buffer
 )
 {
 	if (!vigem)
@@ -966,11 +966,13 @@ VIGEM_ERROR vigem_target_ds4_await_output_report(
 	DEVICE_IO_CONTROL_BEGIN;
 
 	DS4_AWAIT_OUTPUT await;
-	DS4_AWAIT_OUTPUT_INIT(&await, target->SerialNo);
+
+retry:
+	DS4_AWAIT_OUTPUT_INIT(&await);
 
 	DeviceIoControl(
 		vigem->hBusDevice,
-		IOCTL_DS4_AWAIT_OUTPUT,
+		IOCTL_DS4_AWAIT_OUTPUT_AVAILABLE,
 		&await,
 		await.Size,
 		&await,
@@ -987,7 +989,12 @@ VIGEM_ERROR vigem_target_ds4_await_output_report(
 			return VIGEM_ERROR_INVALID_TARGET;
 		}
 
-		RtlCopyMemory(buffer, await.Report.Buffer, sizeof(DS4_AWAIT_OUTPUT_BUFFER));
+		if (GetLastError() == ERROR_SUCCESS && await.SerialNo != target->SerialNo)
+		{
+			goto retry;
+		}
+
+		RtlCopyMemory(buffer, await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
 	}
 
 	DEVICE_IO_CONTROL_END;
