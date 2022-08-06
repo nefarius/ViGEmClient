@@ -990,6 +990,9 @@ retry:
 		{
 		case ERROR_ACCESS_DENIED:
 			return VIGEM_ERROR_INVALID_TARGET;
+			//
+			// TODO: timeout not utilized currently as it causes problems
+			// 
 		case ERROR_IO_INCOMPLETE:
 		case WAIT_TIMEOUT:
 			return VIGEM_ERROR_TIMED_OUT;
