@@ -502,12 +502,14 @@ typedef struct _DS4_AWAIT_OUTPUT
 #include <poppack.h>
 
 VOID FORCEINLINE DS4_AWAIT_OUTPUT_INIT(
-	_Out_ PDS4_AWAIT_OUTPUT Output
+	_Out_ PDS4_AWAIT_OUTPUT Output,
+    _In_ ULONG SerialNo
 )
 {
 	RtlZeroMemory(Output, sizeof(DS4_AWAIT_OUTPUT));
 
 	Output->Size = sizeof(DS4_AWAIT_OUTPUT);
+    Output->SerialNo = SerialNo;
 }
 
 #pragma endregion

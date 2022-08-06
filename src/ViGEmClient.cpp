@@ -968,7 +968,7 @@ VIGEM_ERROR vigem_target_ds4_await_output_report(
 	DS4_AWAIT_OUTPUT await;
 
 retry:
-	DS4_AWAIT_OUTPUT_INIT(&await);
+	DS4_AWAIT_OUTPUT_INIT(&await, target->SerialNo);
 
 	DeviceIoControl(
 		vigem->hBusDevice,
