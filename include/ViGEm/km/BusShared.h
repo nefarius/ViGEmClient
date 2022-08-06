@@ -483,7 +483,7 @@ typedef struct _DS4_OUTPUT_BUFFER
 typedef struct _DS4_AWAIT_OUTPUT
 {
 	//
-	// sizeof(struct _DS4_SUBMIT_REPORT_EX)
+	// sizeof(struct _DS4_AWAIT_OUTPUT)
 	// 
 	_In_ ULONG Size;
 
