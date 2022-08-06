@@ -999,5 +999,10 @@ retry:
 
 	DEVICE_IO_CONTROL_END;
 
+	//
+	// TODO: remove me
+	// 
+	await.Report.Buffer[0] = 0x01;
+
 	return VIGEM_ERROR_NONE;
 }
