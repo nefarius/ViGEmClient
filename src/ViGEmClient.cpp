@@ -29,7 +29,6 @@ SOFTWARE.
 #include <Windows.h>
 #include <SetupAPI.h>
 #include <initguid.h>
-#include <Dbghelp.h>
 
 //
 // Driver shared
@@ -53,26 +52,6 @@ SOFTWARE.
 // 
 #include "Internal.h"
 
-//
-// Uncomment to compile in crash dump handler
-// 
-//#define VIGEM_USE_CRASH_HANDLER
-
-
-#ifdef VIGEM_USE_CRASH_HANDLER
-typedef BOOL(WINAPI* MINIDUMPWRITEDUMP)(
-	HANDLE hProcess,
-	DWORD dwPid,
-	HANDLE hFile,
-	MINIDUMP_TYPE DumpType,
-	CONST PMINIDUMP_EXCEPTION_INFORMATION ExceptionParam,
-	CONST PMINIDUMP_USER_STREAM_INFORMATION UserStreamParam,
-	CONST PMINIDUMP_CALLBACK_INFORMATION CallbackParam
-	);
-
-LONG WINAPI vigem_internal_exception_handler(struct _EXCEPTION_POINTERS* apExceptionInfo);
-#endif
-
 
 //
 // Initializes a virtual gamepad object.
@@ -94,57 +73,8 @@ PVIGEM_TARGET FORCEINLINE VIGEM_TARGET_ALLOC_INIT(
 	return target;
 }
 
-#ifdef VIGEM_USE_CRASH_HANDLER
-LONG WINAPI vigem_internal_exception_handler(struct _EXCEPTION_POINTERS* apExceptionInfo)
-{
-	const auto mhLib = LoadLibrary(L"dbghelp.dll");
-	const auto pDump = reinterpret_cast<MINIDUMPWRITEDUMP>(GetProcAddress(mhLib, "MiniDumpWriteDump"));
-
-	const auto hFile = CreateFile(
-		L"ViGEmClient.dmp",
-		GENERIC_WRITE,
-		FILE_SHARE_WRITE,
-		nullptr,
-		CREATE_ALWAYS,
-		FILE_ATTRIBUTE_NORMAL,
-		nullptr
-	);
-
-	const DWORD flags = MiniDumpWithFullMemory | MiniDumpWithHandleData | MiniDumpWithUnloadedModules |
-		MiniDumpWithUnloadedModules | MiniDumpWithProcessThreadData |
-		MiniDumpWithFullMemoryInfo | MiniDumpWithThreadInfo |
-		MiniDumpWithFullAuxiliaryState | MiniDumpIgnoreInaccessibleMemory |
-		MiniDumpWithTokenInformation;
-
-	if (hFile != INVALID_HANDLE_VALUE)
-	{
-		_MINIDUMP_EXCEPTION_INFORMATION ExInfo;
-		ExInfo.ThreadId = GetCurrentThreadId();
-		ExInfo.ExceptionPointers = apExceptionInfo;
-		ExInfo.ClientPointers = FALSE;
-
-		pDump(
-			GetCurrentProcess(),
-			GetCurrentProcessId(),
-			hFile,
-			(MINIDUMP_TYPE)flags,
-			&ExInfo,
-			nullptr,
-			nullptr
-		);
-		CloseHandle(hFile);
-	}
-
-	return EXCEPTION_CONTINUE_SEARCH;
-}
-#endif
-
 PVIGEM_CLIENT vigem_alloc()
 {
-#ifdef VIGEM_USE_CRASH_HANDLER
-	SetUnhandledExceptionFilter(vigem_internal_exception_handler);
-#endif
-
 	const auto driver = static_cast<PVIGEM_CLIENT>(malloc(sizeof(VIGEM_CLIENT)));
 
 	if (!driver)
@@ -528,10 +458,8 @@ VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 	if (target->State != VIGEM_TARGET_CONNECTED)
 		return VIGEM_ERROR_TARGET_NOT_PLUGGED_IN;
 
-	DWORD transfered = 0;
 	VIGEM_UNPLUG_TARGET unplug;
-	OVERLAPPED lOverlapped = { 0 };
-	lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	DEVICE_IO_CONTROL_BEGIN;
 
 	VIGEM_UNPLUG_TARGET_INIT(&unplug, target->SerialNo);
 
@@ -542,11 +470,11 @@ VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 		unplug.Size,
 		nullptr,
 		0,
-		&transfered,
+		&transferred,
 		&lOverlapped
 	);
 
-	if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transfered, TRUE) != 0)
+	if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
 	{
 		target->State = VIGEM_TARGET_DISCONNECTED;
 		CloseHandle(lOverlapped.hEvent);
@@ -554,7 +482,7 @@ VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 		return VIGEM_ERROR_NONE;
 	}
 
-	CloseHandle(lOverlapped.hEvent);
+	DEVICE_IO_CONTROL_END;
 
 	return VIGEM_ERROR_REMOVAL_FAILED;
 }
@@ -584,15 +512,15 @@ VIGEM_ERROR vigem_target_x360_register_notification(
 	target->Notification = reinterpret_cast<FARPROC>(notification);
 	target->NotificationUserData = userData;
 
-	if (target->cancelNotificationThreadEvent == nullptr)
-		target->cancelNotificationThreadEvent = CreateEvent(
+	if (target->CancelNotificationThreadEvent == nullptr)
+		target->CancelNotificationThreadEvent = CreateEvent(
 			nullptr,
 			TRUE,
 			FALSE,
 			nullptr
 		);
 	else
-		ResetEvent(target->cancelNotificationThreadEvent);
+		ResetEvent(target->CancelNotificationThreadEvent);
 
 	std::thread _async{
 		[](
@@ -600,9 +528,7 @@ VIGEM_ERROR vigem_target_x360_register_notification(
 		PVIGEM_CLIENT _Client,
 		LPVOID _UserData)
 		{
-			DWORD transferred = 0;
-			OVERLAPPED lOverlapped = {0};
-			lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+			DEVICE_IO_CONTROL_BEGIN;
 
 			XUSB_REQUEST_NOTIFICATION xrn;
 			XUSB_REQUEST_NOTIFICATION_INIT(&xrn, _Target->SerialNo);
@@ -637,7 +563,7 @@ VIGEM_ERROR vigem_target_x360_register_notification(
 
 				if (GetLastError() == ERROR_ACCESS_DENIED || GetLastError() == ERROR_OPERATION_ABORTED)
 				{
-					CloseHandle(lOverlapped.hEvent);
+					DEVICE_IO_CONTROL_END;
 					return;
 				}
 			} while (TRUE);
@@ -675,15 +601,15 @@ VIGEM_ERROR vigem_target_ds4_register_notification(
 	target->Notification = reinterpret_cast<FARPROC>(notification);
 	target->NotificationUserData = userData;
 
-	if (target->cancelNotificationThreadEvent == 0)
-		target->cancelNotificationThreadEvent = CreateEvent(
+	if (target->CancelNotificationThreadEvent == 0)
+		target->CancelNotificationThreadEvent = CreateEvent(
 			nullptr,
 			TRUE,
 			FALSE,
 			nullptr
 		);
 	else
-		ResetEvent(target->cancelNotificationThreadEvent);
+		ResetEvent(target->CancelNotificationThreadEvent);
 
 	std::thread _async{
 		[](
@@ -691,9 +617,7 @@ VIGEM_ERROR vigem_target_ds4_register_notification(
 		PVIGEM_CLIENT _Client,
 		LPVOID _UserData)
 		{
-			DWORD transferred = 0;
-			OVERLAPPED lOverlapped = {0};
-			lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+			DEVICE_IO_CONTROL_BEGIN;
 
 			DS4_REQUEST_NOTIFICATION ds4rn;
 			DS4_REQUEST_NOTIFICATION_INIT(&ds4rn, _Target->SerialNo);
@@ -730,7 +654,7 @@ VIGEM_ERROR vigem_target_ds4_register_notification(
 
 				if (GetLastError() == ERROR_ACCESS_DENIED || GetLastError() == ERROR_OPERATION_ABORTED)
 				{
-					CloseHandle(lOverlapped.hEvent);
+					DEVICE_IO_CONTROL_END;
 					return;
 				}
 			} while (TRUE);
@@ -745,13 +669,13 @@ VIGEM_ERROR vigem_target_ds4_register_notification(
 
 void vigem_target_x360_unregister_notification(PVIGEM_TARGET target)
 {
-	if (target->cancelNotificationThreadEvent != 0)
-		SetEvent(target->cancelNotificationThreadEvent);
+	if (target->CancelNotificationThreadEvent != 0)
+		SetEvent(target->CancelNotificationThreadEvent);
 
-	if (target->cancelNotificationThreadEvent != nullptr)
+	if (target->CancelNotificationThreadEvent != nullptr)
 	{
-		CloseHandle(target->cancelNotificationThreadEvent);
-		target->cancelNotificationThreadEvent = nullptr;
+		CloseHandle(target->CancelNotificationThreadEvent);
+		target->CancelNotificationThreadEvent = nullptr;
 	}
 
 	target->Notification = nullptr;
@@ -801,9 +725,7 @@ VIGEM_ERROR vigem_target_x360_update(
 	if (target->SerialNo == 0)
 		return VIGEM_ERROR_INVALID_TARGET;
 
-	DWORD transferred = 0;
-	OVERLAPPED lOverlapped = { 0 };
-	lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	DEVICE_IO_CONTROL_BEGIN;
 
 	XUSB_SUBMIT_REPORT xsr;
 	XUSB_SUBMIT_REPORT_INIT(&xsr, target->SerialNo);
@@ -830,7 +752,7 @@ VIGEM_ERROR vigem_target_x360_update(
 		}
 	}
 
-	CloseHandle(lOverlapped.hEvent);
+	DEVICE_IO_CONTROL_END;
 
 	return VIGEM_ERROR_NONE;
 }
@@ -853,9 +775,7 @@ VIGEM_ERROR vigem_target_ds4_update(
 	if (target->SerialNo == 0)
 		return VIGEM_ERROR_INVALID_TARGET;
 
-	DWORD transferred = 0;
-	OVERLAPPED lOverlapped = { 0 };
-	lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	DEVICE_IO_CONTROL_BEGIN;
 
 	DS4_SUBMIT_REPORT dsr;
 	DS4_SUBMIT_REPORT_INIT(&dsr, target->SerialNo);
@@ -882,7 +802,7 @@ VIGEM_ERROR vigem_target_ds4_update(
 		}
 	}
 
-	CloseHandle(lOverlapped.hEvent);
+	DEVICE_IO_CONTROL_END;
 
 	return VIGEM_ERROR_NONE;
 }
@@ -901,9 +821,7 @@ VIGEM_ERROR vigem_target_ds4_update_ex(PVIGEM_CLIENT vigem, PVIGEM_TARGET target
 	if (target->SerialNo == 0)
 		return VIGEM_ERROR_INVALID_TARGET;
 
-	DWORD transferred = 0;
-	OVERLAPPED lOverlapped = { 0 };
-	lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	DEVICE_IO_CONTROL_BEGIN;
 
 	DS4_SUBMIT_REPORT_EX dsr;
 	DS4_SUBMIT_REPORT_EX_INIT(&dsr, target->SerialNo);
@@ -943,7 +861,7 @@ VIGEM_ERROR vigem_target_ds4_update_ex(PVIGEM_CLIENT vigem, PVIGEM_TARGET target
 		}
 	}
 
-	CloseHandle(lOverlapped.hEvent);
+	DEVICE_IO_CONTROL_END;
 
 	return VIGEM_ERROR_NONE;
 }
@@ -984,9 +902,7 @@ VIGEM_ERROR vigem_target_x360_get_user_index(
 	if (!index)
 		return VIGEM_ERROR_INVALID_PARAMETER;
 
-	DWORD transferred = 0;
-	OVERLAPPED lOverlapped = { 0 };
-	lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	DEVICE_IO_CONTROL_BEGIN;
 
 	XUSB_GET_USER_INDEX gui;
 	XUSB_GET_USER_INDEX_INIT(&gui, target->SerialNo);
@@ -1019,7 +935,7 @@ VIGEM_ERROR vigem_target_x360_get_user_index(
 		}
 	}
 
-	CloseHandle(lOverlapped.hEvent);
+	DEVICE_IO_CONTROL_END;
 
 	*index = gui.UserIndex;
 
@@ -1047,9 +963,7 @@ VIGEM_ERROR vigem_target_ds4_await_output_report(
 	if (!buffer)
 		return VIGEM_ERROR_INVALID_PARAMETER;
 
-	DWORD transferred = 0;
-	OVERLAPPED lOverlapped = { 0 };
-	lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+	DEVICE_IO_CONTROL_BEGIN;
 
 	DS4_AWAIT_OUTPUT await;
 	DS4_AWAIT_OUTPUT_INIT(&await, target->SerialNo);
@@ -1076,7 +990,7 @@ VIGEM_ERROR vigem_target_ds4_await_output_report(
 		RtlCopyMemory(buffer, await.Report.Buffer, sizeof(DS4_AWAIT_OUTPUT_BUFFER));
 	}
 
-	CloseHandle(lOverlapped.hEvent);
+	DEVICE_IO_CONTROL_END;
 
 	return VIGEM_ERROR_NONE;
 }
