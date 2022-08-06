@@ -471,15 +471,6 @@ VOID FORCEINLINE DS4_SUBMIT_REPORT_EX_INIT(
 
 #include <pshpack1.h>
 
-typedef struct _DS4_OUTPUT_BUFFER
-{
-	//
-	// The output report buffer
-	// 
-	_Out_ UCHAR Buffer[64];
-	
-} DS4_OUTPUT_BUFFER, *PDS4_OUTPUT_BUFFER;
-
 typedef struct _DS4_AWAIT_OUTPUT
 {
 	//

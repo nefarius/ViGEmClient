@@ -994,8 +994,11 @@ retry:
 			goto retry;
 		}
 
-		RtlCopyMemory(buffer, await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
+		DEVICE_IO_CONTROL_END;
+		return VIGEM_ERROR_WINAPI;
 	}
+
+	RtlCopyMemory(buffer, await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
 
 	DEVICE_IO_CONTROL_END;
 
