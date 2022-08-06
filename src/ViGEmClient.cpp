@@ -984,24 +984,25 @@ retry:
 
 	if (GetOverlappedResultEx(vigem->hBusDevice, &lOverlapped, &transferred, milliseconds, FALSE) == 0)
 	{
-		if (GetLastError() == ERROR_ACCESS_DENIED)
+		const DWORD error = GetLastError();
+		DEVICE_IO_CONTROL_END;
+
+		switch (error)
 		{
-			DEVICE_IO_CONTROL_END;
+		case ERROR_ACCESS_DENIED:
 			return VIGEM_ERROR_INVALID_TARGET;
-		}
-
-		if (GetLastError() == ERROR_IO_INCOMPLETE)
-		{
-			DEVICE_IO_CONTROL_END;
+		case ERROR_IO_INCOMPLETE:
+		case WAIT_TIMEOUT:
 			return VIGEM_ERROR_TIMED_OUT;
+		default:
+			break;
 		}
 
-		if (GetLastError() == ERROR_SUCCESS && await.SerialNo != target->SerialNo)
+		if (error == ERROR_SUCCESS && await.SerialNo != target->SerialNo)
 		{
 			goto retry;
 		}
 
-		DEVICE_IO_CONTROL_END;
 		return VIGEM_ERROR_WINAPI;
 	}
 
