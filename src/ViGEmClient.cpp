@@ -983,7 +983,7 @@ VIGEM_ERROR vigem_target_ds4_await_output_report(
 	{
 		if (GetLastError() == ERROR_ACCESS_DENIED)
 		{
-			CloseHandle(lOverlapped.hEvent);
+			DEVICE_IO_CONTROL_END;
 			return VIGEM_ERROR_INVALID_TARGET;
 		}
 
