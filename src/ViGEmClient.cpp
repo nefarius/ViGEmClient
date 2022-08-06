@@ -924,13 +924,13 @@ VIGEM_ERROR vigem_target_x360_get_user_index(
 
 		if (error == ERROR_ACCESS_DENIED)
 		{
-			CloseHandle(lOverlapped.hEvent);
+			DEVICE_IO_CONTROL_END;
 			return VIGEM_ERROR_INVALID_TARGET;
 		}
 
 		if (error == ERROR_INVALID_DEVICE_OBJECT_PARAMETER)
 		{
-			CloseHandle(lOverlapped.hEvent);
+			DEVICE_IO_CONTROL_END;
 			return VIGEM_ERROR_XUSB_USERINDEX_OUT_OF_RANGE;
 		}
 	}
