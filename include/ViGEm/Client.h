@@ -463,6 +463,8 @@ extern "C" {
      */
     VIGEM_API VIGEM_ERROR vigem_target_x360_get_user_index(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, PULONG index);
 
+    VIGEM_API VIGEM_ERROR vigem_target_ds4_await_output_report(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, PDS4_AWAIT_OUTPUT_BUFFER buffer);
+
 #ifdef __cplusplus
 }
 #endif

@@ -71,6 +71,7 @@ DEFINE_GUID(GUID_DEVINTERFACE_BUSENUM_VIGEM,
 //#define IOCTL_XGIP_SUBMIT_REPORT        BUSENUM_W_IOCTL (IOCTL_VIGEM_BASE + 0x204)
 //#define IOCTL_XGIP_SUBMIT_INTERRUPT     BUSENUM_W_IOCTL (IOCTL_VIGEM_BASE + 0x205)
 #define IOCTL_XUSB_GET_USER_INDEX       BUSENUM_RW_IOCTL(IOCTL_VIGEM_BASE + 0x206)
+#define IOCTL_DS4_AWAIT_OUTPUT          BUSENUM_RW_IOCTL(IOCTL_VIGEM_BASE + 0x207)
 
 
 //
@@ -462,6 +463,52 @@ VOID FORCEINLINE DS4_SUBMIT_REPORT_EX_INIT(
 
     Report->Size = sizeof(DS4_SUBMIT_REPORT_EX);
     Report->SerialNo = SerialNo;
+}
+
+#pragma endregion
+
+#pragma region DS4 Await Output
+
+#include <pshpack1.h>
+
+typedef struct _DS4_AWAIT_OUTPUT_BUFFER
+{
+	//
+	// The output report buffer
+	// 
+	_Out_ UCHAR Buffer[64];
+	
+} DS4_AWAIT_OUTPUT_BUFFER, *PDS4_AWAIT_OUTPUT_BUFFER;
+
+typedef struct _DS4_AWAIT_OUTPUT
+{
+	//
+	// sizeof(struct _DS4_SUBMIT_REPORT_EX)
+	// 
+	_In_ ULONG Size;
+
+	//
+	// Serial number of target device.
+	// 
+	_In_ ULONG SerialNo;
+
+	//
+	// The output report buffer
+	// 
+	_Out_ DS4_AWAIT_OUTPUT_BUFFER Report;
+} DS4_AWAIT_OUTPUT, * PDS4_AWAIT_OUTPUT;
+
+#include <poppack.h>
+
+VOID FORCEINLINE DS4_AWAIT_OUTPUT_INIT(
+	_Out_ PDS4_AWAIT_OUTPUT Output,
+	_In_ ULONG SerialNo
+)
+{
+	RtlZeroMemory(Output, sizeof(DS4_AWAIT_OUTPUT));
+
+	Output->Size = sizeof(DS4_AWAIT_OUTPUT);
+	Output->SerialNo = SerialNo;
 }
 
 #pragma endregion
