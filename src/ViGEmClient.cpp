@@ -477,7 +477,7 @@ VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 	if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
 	{
 		target->State = VIGEM_TARGET_DISCONNECTED;
-		CloseHandle(lOverlapped.hEvent);
+		DEVICE_IO_CONTROL_END;
 
 		return VIGEM_ERROR_NONE;
 	}
@@ -550,7 +550,7 @@ VIGEM_ERROR vigem_target_x360_register_notification(
 				{
 					if (_Target->Notification == nullptr)
 					{
-						CloseHandle(lOverlapped.hEvent);
+						DEVICE_IO_CONTROL_END;
 						return;
 					}
 
@@ -639,7 +639,7 @@ VIGEM_ERROR vigem_target_ds4_register_notification(
 				{
 					if (_Target->Notification == nullptr)
 					{
-						CloseHandle(lOverlapped.hEvent);
+						DEVICE_IO_CONTROL_END;
 						return;
 					}
 
@@ -747,7 +747,7 @@ VIGEM_ERROR vigem_target_x360_update(
 	{
 		if (GetLastError() == ERROR_ACCESS_DENIED)
 		{
-			CloseHandle(lOverlapped.hEvent);
+			DEVICE_IO_CONTROL_END;
 			return VIGEM_ERROR_INVALID_TARGET;
 		}
 	}
@@ -797,7 +797,7 @@ VIGEM_ERROR vigem_target_ds4_update(
 	{
 		if (GetLastError() == ERROR_ACCESS_DENIED)
 		{
-			CloseHandle(lOverlapped.hEvent);
+			DEVICE_IO_CONTROL_END;
 			return VIGEM_ERROR_INVALID_TARGET;
 		}
 	}
@@ -843,7 +843,7 @@ VIGEM_ERROR vigem_target_ds4_update_ex(PVIGEM_CLIENT vigem, PVIGEM_TARGET target
 	{
 		if (GetLastError() == ERROR_ACCESS_DENIED)
 		{
-			CloseHandle(lOverlapped.hEvent);
+			DEVICE_IO_CONTROL_END;
 			return VIGEM_ERROR_INVALID_TARGET;
 		}
 
@@ -856,7 +856,7 @@ VIGEM_ERROR vigem_target_ds4_update_ex(PVIGEM_CLIENT vigem, PVIGEM_TARGET target
 		 */
 		if (GetLastError() == ERROR_INVALID_PARAMETER)
 		{
-			CloseHandle(lOverlapped.hEvent);
+			DEVICE_IO_CONTROL_END;
 			return VIGEM_ERROR_NOT_SUPPORTED;
 		}
 	}
@@ -991,6 +991,18 @@ retry:
 			return VIGEM_ERROR_INVALID_TARGET;
 		}
 
+		/*
+		 * NOTE: check if the driver has set the same serial number we submitted
+		 * to be sure this report belongs to our target device. One queue is used
+		 * for all potentially spawned virtual DS4s due to limitations on how
+		 * DMF_NotifyUserWithRequestMultiple works in combination with device 
+		 * objects. The module keeps track on requests issued via the FDO (bus
+		 * driver device) but must notify for one to many virtual DS4 PDOs.
+		 * Therefore, it may happen that a packet bubbles up that doesn't belong
+		 * to our device of interest. The workaround is to check if the serial
+		 * remained the same and if not, fetch the next packet until the queue
+		 * has been processed in its entirety. 
+		 */
 		if (error == ERROR_SUCCESS && await.SerialNo != target->SerialNo)
 		{
 			goto retry;
@@ -1063,6 +1075,18 @@ retry:
 			break;
 		}
 
+		/*
+		 * NOTE: check if the driver has set the same serial number we submitted
+		 * to be sure this report belongs to our target device. One queue is used
+		 * for all potentially spawned virtual DS4s due to limitations on how
+		 * DMF_NotifyUserWithRequestMultiple works in combination with device 
+		 * objects. The module keeps track on requests issued via the FDO (bus
+		 * driver device) but must notify for one to many virtual DS4 PDOs.
+		 * Therefore, it may happen that a packet bubbles up that doesn't belong
+		 * to our device of interest. The workaround is to check if the serial
+		 * remained the same and if not, fetch the next packet until the queue
+		 * has been processed in its entirety. 
+		 */
 		if (error == ERROR_SUCCESS && await.SerialNo != target->SerialNo)
 		{
 			goto retry;
