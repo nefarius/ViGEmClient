@@ -986,15 +986,78 @@ retry:
 		const DWORD error = GetLastError();
 		DEVICE_IO_CONTROL_END;
 
+		if (error == ERROR_ACCESS_DENIED)
+		{
+			return VIGEM_ERROR_INVALID_TARGET;
+		}
+
+		if (error == ERROR_SUCCESS && await.SerialNo != target->SerialNo)
+		{
+			goto retry;
+		}
+
+		return VIGEM_ERROR_WINAPI;
+	}
+
+	RtlCopyMemory(buffer, await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
+
+	DEVICE_IO_CONTROL_END;
+
+	return VIGEM_ERROR_NONE;
+}
+
+VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
+	PVIGEM_CLIENT vigem,
+	PVIGEM_TARGET target,
+	DWORD milliseconds,
+	PDS4_OUTPUT_BUFFER buffer
+)
+{
+	if (!vigem)
+		return VIGEM_ERROR_BUS_INVALID_HANDLE;
+
+	if (!target)
+		return VIGEM_ERROR_INVALID_TARGET;
+
+	if (vigem->hBusDevice == INVALID_HANDLE_VALUE)
+		return VIGEM_ERROR_BUS_NOT_FOUND;
+
+	if (target->SerialNo == 0)
+		return VIGEM_ERROR_INVALID_TARGET;
+
+	if (!buffer)
+		return VIGEM_ERROR_INVALID_PARAMETER;
+
+	DEVICE_IO_CONTROL_BEGIN;
+
+	DS4_AWAIT_OUTPUT await;
+
+retry:
+	DS4_AWAIT_OUTPUT_INIT(&await, target->SerialNo);
+
+	DeviceIoControl(
+		vigem->hBusDevice,
+		IOCTL_DS4_AWAIT_OUTPUT_AVAILABLE,
+		&await,
+		await.Size,
+		&await,
+		await.Size,
+		&transferred,
+		&lOverlapped
+	);
+
+	if (GetOverlappedResultEx(vigem->hBusDevice, &lOverlapped, &transferred, milliseconds, FALSE) == 0)
+	{
+		const DWORD error = GetLastError();
+		DEVICE_IO_CONTROL_END;
+
 		switch (error)
 		{
 		case ERROR_ACCESS_DENIED:
 			return VIGEM_ERROR_INVALID_TARGET;
-			//
-			// TODO: timeout not utilized currently as it causes problems
-			// 
 		case ERROR_IO_INCOMPLETE:
 		case WAIT_TIMEOUT:
+			CancelIoEx(vigem->hBusDevice, &lOverlapped);
 			return VIGEM_ERROR_TIMED_OUT;
 		default:
 			break;

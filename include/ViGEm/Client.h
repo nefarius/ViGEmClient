@@ -589,6 +589,34 @@ extern "C" {
         PDS4_OUTPUT_BUFFER buffer
     );
 
+    /**
+     * Waits until there's one or more pending raw output reports available to consume. This
+     * function blocks until data becomes available, the provided timeout has been reached or the
+     * device gets disconnected. The waiting is event-based, meaning that as soon as a data packet
+     * is pending, this call returns a copy of the entire buffer. Each call returns a packet in the
+     * exact order it arrived in the driver. It is recommended to repeatedly call this function in a
+     * thread. A timeout of a few hundred milliseconds can be used to break out of the loop without
+     * excessive CPU consumption. The call aborts with an error code if the target gets unplugged in
+     * parallel. If a timeout of INFINITE is specified, the function basically behaves identical to
+     * vigem_target_ds4_await_output_report.
+     *
+     * @author	Benjamin "Nefarius" Höglinger-Stelzer
+     * @date	12.08.2022
+     *
+     * @param 	vigem			The driver connection object.
+     * @param 	target			The target device object.
+     * @param 	milliseconds	The timeout in milliseconds.
+     * @param 	buffer			The fixed-size 64-bytes output report buffer that gets written to.
+     *
+     * @returns	A VIGEM_ERROR.
+     */
+    VIGEM_API VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
+        PVIGEM_CLIENT vigem, 
+        PVIGEM_TARGET target,
+        DWORD milliseconds,
+        PDS4_OUTPUT_BUFFER buffer
+    );
+
 #ifdef __cplusplus
 }
 #endif
