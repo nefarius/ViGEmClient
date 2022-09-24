@@ -23,7 +23,7 @@ The `ViGEmClient` provides a small library exposing a simple API for creating an
 
 Found a bug and want it fixed? Open a detailed issue on the [GitHub issue tracker](../../issues)!
 
-Have an idea for a new feature? Let's have a chat about your request on [Discord](https://discord.vigem.org) or the [community forums](https://forums.vigem.org).
+Have an idea for a new feature? Let's have a chat about your request on [our support channels](https://vigem.org/Community-Support/).
 
 ### Questions & Support
 
