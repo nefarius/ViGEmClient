@@ -1,5 +1,9 @@
 version: 1.21.{build}.0
 image: Visual Studio 2019
+skip_commits:
+  files:
+    - assets/*
+    - '**/*.md'
 platform:
 - x86
 - x64
