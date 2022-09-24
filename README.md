@@ -27,7 +27,7 @@ Have an idea for a new feature? Let's have a chat about your request on [Discord
 
 ### Questions & Support
 
-Please respect that the GitHub issue tracker isn't a helpdesk. We offer a [Discord server](https://discord.vigem.org) and [forums](https://forums.vigem.org), where you're welcome to check out and engage in discussions!
+Please respect that the GitHub issue tracker isn't a helpdesk. We offer [support resources](https://vigem.org/Community-Support/), where you're welcome to check out and engage in discussions!
 
 ## How to use
 
