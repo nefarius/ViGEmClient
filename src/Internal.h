@@ -67,6 +67,14 @@ typedef struct _VIGEM_TARGET_T
     FARPROC Notification;
     LPVOID NotificationUserData;
     BOOLEAN IsWaitReadyUnsupported;
-
-	HANDLE cancelNotificationThreadEvent;
+	HANDLE CancelNotificationThreadEvent;
 } VIGEM_TARGET;
+
+#define DEVICE_IO_CONTROL_BEGIN	\
+	DWORD transferred = 0; \
+	OVERLAPPED lOverlapped = { 0 }; \
+	lOverlapped.hEvent = CreateEvent(NULL, FALSE, FALSE, NULL)
+
+#define DEVICE_IO_CONTROL_END \
+	if (lOverlapped.hEvent) \
+		CloseHandle(lOverlapped.hEvent)

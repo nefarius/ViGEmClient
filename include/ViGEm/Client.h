@@ -45,15 +45,39 @@ extern "C" {
     /** Values that represent ViGEm errors */
     typedef enum _VIGEM_ERRORS
     {
+        //
+        // API succeeded.
+        // 
         VIGEM_ERROR_NONE = 0x20000000,
+        //
+        // A compatible bus driver wasn't found on the system.
+        // 
         VIGEM_ERROR_BUS_NOT_FOUND = 0xE0000001,
+        //
+        // All device slots are occupied, no new device can be spawned.
+        // 
         VIGEM_ERROR_NO_FREE_SLOT = 0xE0000002,
         VIGEM_ERROR_INVALID_TARGET = 0xE0000003,
         VIGEM_ERROR_REMOVAL_FAILED = 0xE0000004,
+        //
+        // An attempt has been made to plug in an already connected device.
+        // 
         VIGEM_ERROR_ALREADY_CONNECTED = 0xE0000005,
+        //
+        // The target device is not initialized.
+        // 
         VIGEM_ERROR_TARGET_UNINITIALIZED = 0xE0000006,
+        //
+        // The target device is not plugged in.
+        // 
         VIGEM_ERROR_TARGET_NOT_PLUGGED_IN = 0xE0000007,
+        //
+        // It's been attempted to communicate with an incompatible driver version.
+        // 
         VIGEM_ERROR_BUS_VERSION_MISMATCH = 0xE0000008,
+        //
+        // Bus driver found but failed to open a handle.
+        // 
         VIGEM_ERROR_BUS_ACCESS_FAILED = 0xE0000009,
         VIGEM_ERROR_CALLBACK_ALREADY_REGISTERED = 0xE0000010,
         VIGEM_ERROR_CALLBACK_NOT_FOUND = 0xE0000011,
@@ -61,7 +85,18 @@ extern "C" {
         VIGEM_ERROR_BUS_INVALID_HANDLE = 0xE0000013,
         VIGEM_ERROR_XUSB_USERINDEX_OUT_OF_RANGE = 0xE0000014,
 		VIGEM_ERROR_INVALID_PARAMETER = 0xE0000015,
-    	VIGEM_ERROR_NOT_SUPPORTED = 0xE0000016
+        //
+        // The API is not supported by the driver.
+        // 
+    	VIGEM_ERROR_NOT_SUPPORTED = 0xE0000016,
+        //
+        // An unexpected Win32 API error occurred. Call GetLastError() for details.
+        // 
+    	VIGEM_ERROR_WINAPI = 0xE0000017,
+        //
+        // The specified timeout has been reached.
+        // 
+    	VIGEM_ERROR_TIMED_OUT = 0xE0000018,
 
     } VIGEM_ERROR;
 
@@ -138,7 +173,9 @@ extern "C" {
      *
      * @param 	vigem	The PVIGEM_CLIENT object.
      */
-    VIGEM_API void vigem_free(PVIGEM_CLIENT vigem);
+    VIGEM_API void vigem_free(
+        PVIGEM_CLIENT vigem
+    );
 
     /**
      * Initializes the driver object and establishes a connection to the emulation bus
@@ -151,7 +188,9 @@ extern "C" {
      *
      * @returns	A VIGEM_ERROR.
      */
-    VIGEM_API VIGEM_ERROR vigem_connect(PVIGEM_CLIENT vigem);
+    VIGEM_API VIGEM_ERROR vigem_connect(
+        PVIGEM_CLIENT vigem
+    );
 
     /**
      * Disconnects from the bus device and resets the driver object state. The driver object
@@ -164,7 +203,9 @@ extern "C" {
      *
      * @param 	vigem	The PVIGEM_CLIENT object.
      */
-    VIGEM_API void vigem_disconnect(PVIGEM_CLIENT vigem);
+    VIGEM_API void vigem_disconnect(
+        PVIGEM_CLIENT vigem
+    );
 
     /**
      * A useful utility function to check if pre 1.17 driver, meant to be replaced in the future by
@@ -178,7 +219,9 @@ extern "C" {
      *
      * @returns	A BOOLEAN, true if the device wait ready ioctl is supported (1.17+) or false if not ( =< 1.16)
      */
-    VIGEM_API BOOLEAN vigem_target_is_waitable_add_supported(PVIGEM_TARGET target);
+    VIGEM_API BOOLEAN vigem_target_is_waitable_add_supported(
+        PVIGEM_TARGET target
+    );
 
     /**
      * Allocates an object representing an Xbox 360 Controller device.
@@ -211,7 +254,9 @@ extern "C" {
      *
      * @param 	target	The target device object.
      */
-    VIGEM_API void vigem_target_free(PVIGEM_TARGET target);
+    VIGEM_API void vigem_target_free(
+        PVIGEM_TARGET target
+    );
 
     /**
      * Adds a provided target device to the bus driver, which is equal to a device plug-in
@@ -226,7 +271,10 @@ extern "C" {
      *
      * @returns	A VIGEM_ERROR.
      */
-    VIGEM_API VIGEM_ERROR vigem_target_add(PVIGEM_CLIENT vigem, PVIGEM_TARGET target);
+    VIGEM_API VIGEM_ERROR vigem_target_add(
+        PVIGEM_CLIENT vigem, 
+        PVIGEM_TARGET target
+    );
 
     /**
      * Adds a provided target device to the bus driver, which is equal to a device plug-in
@@ -243,7 +291,11 @@ extern "C" {
      *
      * @returns	A VIGEM_ERROR.
      */
-    VIGEM_API VIGEM_ERROR vigem_target_add_async(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, PFN_VIGEM_TARGET_ADD_RESULT result);
+    VIGEM_API VIGEM_ERROR vigem_target_add_async(
+        PVIGEM_CLIENT vigem, 
+        PVIGEM_TARGET target, 
+        PFN_VIGEM_TARGET_ADD_RESULT result
+    );
 
     /**
      * Removes a provided target device from the bus driver, which is equal to a device
@@ -259,7 +311,10 @@ extern "C" {
      *
      * @returns	A VIGEM_ERROR.
      */
-    VIGEM_API VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target);
+    VIGEM_API VIGEM_ERROR vigem_target_remove(
+        PVIGEM_CLIENT vigem, 
+        PVIGEM_TARGET target
+    );
 
     /**
      * Registers a function which gets called, when LED index or vibration state changes
@@ -276,7 +331,12 @@ extern "C" {
      *
      * @returns	A VIGEM_ERROR.
      */
-    VIGEM_API VIGEM_ERROR vigem_target_x360_register_notification(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, PFN_VIGEM_X360_NOTIFICATION notification, LPVOID userData);
+    VIGEM_API VIGEM_ERROR vigem_target_x360_register_notification(
+        PVIGEM_CLIENT vigem, 
+        PVIGEM_TARGET target, 
+        PFN_VIGEM_X360_NOTIFICATION notification, 
+        LPVOID userData
+    );
 
     /**
      * Registers a function which gets called, when LightBar or vibration state changes
@@ -293,7 +353,12 @@ extern "C" {
      *
      * @returns	A VIGEM_ERROR.
      */
-    VIGEM_API VIGEM_ERROR vigem_target_ds4_register_notification(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, PFN_VIGEM_DS4_NOTIFICATION notification, LPVOID userData);
+    VIGEM_API VIGEM_ERROR vigem_target_ds4_register_notification(
+        PVIGEM_CLIENT vigem, 
+        PVIGEM_TARGET target, 
+        PFN_VIGEM_DS4_NOTIFICATION notification, 
+        LPVOID userData
+    );
 
     /**
      * Removes a previously registered callback function from the provided target object.
@@ -303,7 +368,9 @@ extern "C" {
      *
      * @param 	target	The target device object.
      */
-    VIGEM_API void vigem_target_x360_unregister_notification(PVIGEM_TARGET target);
+    VIGEM_API void vigem_target_x360_unregister_notification(
+        PVIGEM_TARGET target
+    );
 
     /**
      * Removes a previously registered callback function from the provided target object.
@@ -313,7 +380,9 @@ extern "C" {
      *
      * @param 	target	The target device object.
      */
-    VIGEM_API void vigem_target_ds4_unregister_notification(PVIGEM_TARGET target);
+    VIGEM_API void vigem_target_ds4_unregister_notification(
+        PVIGEM_TARGET target
+    );
 
     /**
      * Overrides the default Vendor ID value with the provided one.
@@ -324,7 +393,10 @@ extern "C" {
      * @param 	target	The target device object.
      * @param 	vid   	The Vendor ID to set.
      */
-    VIGEM_API void vigem_target_set_vid(PVIGEM_TARGET target, USHORT vid);
+    VIGEM_API void vigem_target_set_vid(
+        PVIGEM_TARGET target, 
+        USHORT vid
+    );
 
     /**
      * Overrides the default Product ID value with the provided one.
@@ -335,7 +407,10 @@ extern "C" {
      * @param 	target	The target device object.
      * @param 	pid   	The Product ID to set.
      */
-    VIGEM_API void vigem_target_set_pid(PVIGEM_TARGET target, USHORT pid);
+    VIGEM_API void vigem_target_set_pid(
+        PVIGEM_TARGET target, 
+        USHORT pid
+    );
 
     /**
      * Returns the Vendor ID of the provided target device object.
@@ -347,7 +422,9 @@ extern "C" {
      *
      * @returns	The Vendor ID.
      */
-    VIGEM_API USHORT vigem_target_get_vid(PVIGEM_TARGET target);
+    VIGEM_API USHORT vigem_target_get_vid(
+        PVIGEM_TARGET target
+    );
 
     /**
      * Returns the Product ID of the provided target device object.
@@ -359,7 +436,9 @@ extern "C" {
      *
      * @returns	The Product ID.
      */
-    VIGEM_API USHORT vigem_target_get_pid(PVIGEM_TARGET target);
+    VIGEM_API USHORT vigem_target_get_pid(
+        PVIGEM_TARGET target
+    );
 
     /**
      * Sends a state report to the provided target device.
@@ -373,10 +452,15 @@ extern "C" {
      *
      * @returns	A VIGEM_ERROR.
      */
-    VIGEM_API VIGEM_ERROR vigem_target_x360_update(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, XUSB_REPORT report);
+    VIGEM_API VIGEM_ERROR vigem_target_x360_update(
+        PVIGEM_CLIENT vigem, 
+        PVIGEM_TARGET target, 
+        XUSB_REPORT report
+    );
 
     /**
-     * Sends a state report to the provided target device.
+     * DEPRECATED. Sends a state report to the provided target device. It's recommended to use
+     * vigem_target_ds4_update_ex instead to utilize all DS4 features like touch, gyro etc.
      *
      * @author	Benjamin "Nefarius" Höglinger
      * @date	28.08.2017
@@ -387,10 +471,15 @@ extern "C" {
      *
      * @returns	A VIGEM_ERROR.
      */
-    VIGEM_API VIGEM_ERROR vigem_target_ds4_update(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, DS4_REPORT report);
+    VIGEM_API VIGEM_ERROR vigem_target_ds4_update(
+        PVIGEM_CLIENT vigem, 
+        PVIGEM_TARGET target, 
+        DS4_REPORT report
+    );
 
     /**
-     * Sends a full size state report to the provided target device.
+     * Sends a full size state report to the provided target device. It's recommended to use this
+     * function over vigem_target_ds4_update.
      *
      * @author	Benjamin "Nefarius" Höglinger-Stelzer
      * @date	07.09.2020
@@ -401,7 +490,11 @@ extern "C" {
      *
      * @returns	A VIGEM_ERROR.
      */
-    VIGEM_API VIGEM_ERROR vigem_target_ds4_update_ex(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, DS4_REPORT_EX report);
+    VIGEM_API VIGEM_ERROR vigem_target_ds4_update_ex(
+        PVIGEM_CLIENT vigem, 
+        PVIGEM_TARGET target, 
+        DS4_REPORT_EX report
+    );
 
     /**
      * Returns the internal index (serial number) the bus driver assigned to the provided
@@ -419,7 +512,9 @@ extern "C" {
      *
      * @returns	The internally used index of the target device.
      */
-    VIGEM_API ULONG vigem_target_get_index(PVIGEM_TARGET target);
+    VIGEM_API ULONG vigem_target_get_index(
+        PVIGEM_TARGET target
+    );
 
     /**
      * Returns the type of the provided target device object.
@@ -431,7 +526,9 @@ extern "C" {
      *
      * @returns	A VIGEM_TARGET_TYPE.
      */
-    VIGEM_API VIGEM_TARGET_TYPE vigem_target_get_type(PVIGEM_TARGET target);
+    VIGEM_API VIGEM_TARGET_TYPE vigem_target_get_type(
+        PVIGEM_TARGET target
+    );
 
     /**
      * Returns TRUE if the provided target device object is currently attached to the bus,
@@ -444,7 +541,9 @@ extern "C" {
      *
      * @returns	TRUE if device is attached to the bus, FALSE otherwise.
      */
-    VIGEM_API BOOL vigem_target_is_attached(PVIGEM_TARGET target);
+    VIGEM_API BOOL vigem_target_is_attached(
+        PVIGEM_TARGET target
+    );
 
     /**
      * Returns the user index of the emulated Xenon device. This value correspondents to the
@@ -461,7 +560,62 @@ extern "C" {
      *
      * @returns	A VIGEM_ERROR.
      */
-    VIGEM_API VIGEM_ERROR vigem_target_x360_get_user_index(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, PULONG index);
+    VIGEM_API VIGEM_ERROR vigem_target_x360_get_user_index(
+        PVIGEM_CLIENT vigem, 
+        PVIGEM_TARGET target, 
+        PULONG index
+    );
+
+    /**
+     * Waits until there's one or more pending raw output reports available to consume. This
+     * function blocks until data becomes available or the device gets disconnected. The waiting is
+     * event-based, meaning that as soon as a data packet is pending, this call returns a copy of
+     * the entire buffer. Each call returns a packet in the exact order it arrived in the driver. It
+     * is recommended to repeatedly call this function in a thread. The call aborts with an error
+     * code if the target gets unplugged in parallel.
+     *
+     * @author	Benjamin "Nefarius" Höglinger-Stelzer
+     * @date	06.08.2022
+     *
+     * @param 	vigem 	The driver connection object.
+     * @param 	target	The target device object.
+     * @param 	buffer	The fixed-size 64-bytes output report buffer that gets written to.
+     *
+     * @returns	A VIGEM_ERROR.
+     */
+    VIGEM_API VIGEM_ERROR vigem_target_ds4_await_output_report(
+        PVIGEM_CLIENT vigem, 
+        PVIGEM_TARGET target, 
+        PDS4_OUTPUT_BUFFER buffer
+    );
+
+    /**
+     * Waits until there's one or more pending raw output reports available to consume. This
+     * function blocks until data becomes available, the provided timeout has been reached or the
+     * device gets disconnected. The waiting is event-based, meaning that as soon as a data packet
+     * is pending, this call returns a copy of the entire buffer. Each call returns a packet in the
+     * exact order it arrived in the driver. It is recommended to repeatedly call this function in a
+     * thread. A timeout of a few hundred milliseconds can be used to break out of the loop without
+     * excessive CPU consumption. The call aborts with an error code if the target gets unplugged in
+     * parallel. If a timeout of INFINITE is specified, the function basically behaves identical to
+     * vigem_target_ds4_await_output_report.
+     *
+     * @author	Benjamin "Nefarius" Höglinger-Stelzer
+     * @date	12.08.2022
+     *
+     * @param 	vigem			The driver connection object.
+     * @param 	target			The target device object.
+     * @param 	milliseconds	The timeout in milliseconds.
+     * @param 	buffer			The fixed-size 64-bytes output report buffer that gets written to.
+     *
+     * @returns	A VIGEM_ERROR.
+     */
+    VIGEM_API VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
+        PVIGEM_CLIENT vigem, 
+        PVIGEM_TARGET target,
+        DWORD milliseconds,
+        PDS4_OUTPUT_BUFFER buffer
+    );
 
 #ifdef __cplusplus
 }
