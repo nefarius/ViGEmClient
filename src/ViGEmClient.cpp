@@ -142,7 +142,6 @@ VIGEM_ERROR vigem_connect(PVIGEM_CLIENT vigem)
 			nullptr
 		))
 		{
-			SetupDiDestroyDeviceInfoList(deviceInfoSet);
 			free(detailDataBuffer);
 			error = VIGEM_ERROR_BUS_NOT_FOUND;
 			continue;
