@@ -542,6 +542,11 @@ VIGEM_ERROR vigem_target_add(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 		}
 	} while (false);
 
+	if (VIGEM_SUCCESS(error))
+	{
+		vigem->pTargetsList[target->SerialNo] = target;
+	}
+
 	if (olPlugIn.hEvent)
 		CloseHandle(olPlugIn.hEvent);
 
@@ -625,6 +630,8 @@ VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 		{
 			CloseHandle(target->Ds4CachedOutputReportUpdateAvailable);
 		}
+
+		vigem->pTargetsList[target->SerialNo] = NULL;
 
 		target->State = VIGEM_TARGET_DISCONNECTED;
 		DEVICE_IO_CONTROL_END;
