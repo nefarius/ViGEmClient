@@ -29,6 +29,7 @@ SOFTWARE.
 #include <Windows.h>
 #include <SetupAPI.h>
 #include <initguid.h>
+#include <strsafe.h>
 
 //
 // Driver shared
@@ -51,6 +52,34 @@ SOFTWARE.
 #include "Internal.h"
 
 
+#define DBGPRINT(kwszDebugFormatString, ...) _DBGPRINT(__FUNCTIONW__, __LINE__, kwszDebugFormatString, __VA_ARGS__)
+
+VOID _DBGPRINT(LPCWSTR kwszFunction, INT iLineNumber, LPCWSTR kwszDebugFormatString, ...) \
+{
+	INT cbFormatString = 0;
+	va_list args;
+	PWCHAR wszDebugString = NULL;
+	size_t st_Offset = 0;
+
+	va_start(args, kwszDebugFormatString);
+
+	cbFormatString = _scwprintf(L"[%s:%d] ", kwszFunction, iLineNumber) * sizeof(WCHAR);
+	cbFormatString += _vscwprintf(kwszDebugFormatString, args) * sizeof(WCHAR) + 2;
+
+	/* Depending on the size of the format string, allocate space on the stack or the heap. */
+	wszDebugString = (PWCHAR)_malloca(cbFormatString);
+
+	/* Populate the buffer with the contents of the format string. */
+	StringCbPrintfW(wszDebugString, cbFormatString, L"[%s:%d] ", kwszFunction, iLineNumber);
+	StringCbLengthW(wszDebugString, cbFormatString, &st_Offset);
+	StringCbVPrintfW(&wszDebugString[st_Offset / sizeof(WCHAR)], cbFormatString - st_Offset, kwszDebugFormatString, args);
+
+	OutputDebugStringW(wszDebugString);
+
+	_freea(wszDebugString);
+	va_end(args);
+}
+
 static void util_dump_as_hex(PCSTR Prefix, PVOID Buffer, ULONG BufferLength)
 {
 	const size_t dumpBufferLength = ((BufferLength * sizeof(CHAR)) * 2) + 1;
@@ -64,17 +93,12 @@ static void util_dump_as_hex(PCSTR Prefix, PVOID Buffer, ULONG BufferLength)
 			(void)sprintf_s(&dumpBuffer[i * 2], 2, "%02X", static_cast<PUCHAR>(Buffer)[i]);
 		}
 
-		OutputDebugStringA(Prefix);
-		OutputDebugStringA(dumpBuffer);
-
-		/*
-		TraceVerbose(TRACE_BUSPDO,
-			"%s - Buffer length: %04d, buffer content: %s\n",
+		DBGPRINT(
+			L"%s - Buffer length: %04d, buffer content: %s\n",
 			Prefix,
 			BufferLength,
 			dumpBuffer
 		);
-		*/
 
 		free(dumpBuffer);
 	}
@@ -997,7 +1021,7 @@ VIGEM_ERROR vigem_target_ds4_await_output_report(
 retry:
 	DS4_AWAIT_OUTPUT_INIT(&await, target->SerialNo);
 
-	OutputDebugStringW(L"Sending IOCTL_DS4_AWAIT_OUTPUT_AVAILABLE");
+	DBGPRINT(L"Sending IOCTL_DS4_AWAIT_OUTPUT_AVAILABLE for %d", target->SerialNo);
 
 	DeviceIoControl(
 		vigem->hBusDevice,
@@ -1019,7 +1043,7 @@ retry:
 		{
 			return VIGEM_ERROR_INVALID_TARGET;
 		}
-		
+
 		/*
 		 * NOTE: check if the driver has set the same serial number we submitted
 		 * to be sure this report belongs to our target device. One queue is used
@@ -1034,12 +1058,14 @@ retry:
 		 */
 		if (error == ERROR_SUCCESS && await.SerialNo != target->SerialNo)
 		{
+			DBGPRINT(L"Serial mismatch, sent %d, got %d", target->SerialNo, await.SerialNo);
 			goto retry;
 		}
 
 		return VIGEM_ERROR_WINAPI;
 	}
 
+	DBGPRINT(L"Dumping buffer for %d", target->SerialNo);
 	util_dump_as_hex("vigem_target_ds4_await_output_report", await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
 
 	RtlCopyMemory(buffer, await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
@@ -1078,7 +1104,7 @@ VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
 retry:
 	DS4_AWAIT_OUTPUT_INIT(&await, target->SerialNo);
 
-	OutputDebugStringW(L"Sending IOCTL_DS4_AWAIT_OUTPUT_AVAILABLE");
+	DBGPRINT(L"Sending IOCTL_DS4_AWAIT_OUTPUT_AVAILABLE for %d", target->SerialNo);
 
 	DeviceIoControl(
 		vigem->hBusDevice,
@@ -1122,12 +1148,14 @@ retry:
 		 */
 		if (error == ERROR_SUCCESS && await.SerialNo != target->SerialNo)
 		{
+			DBGPRINT(L"Serial mismatch, sent %d, got %d", target->SerialNo, await.SerialNo);
 			goto retry;
 		}
 
 		return VIGEM_ERROR_WINAPI;
 	}
 
+	DBGPRINT(L"Dumping buffer for %d", target->SerialNo);
 	util_dump_as_hex("vigem_target_ds4_await_output_report_timeout", await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
 
 	RtlCopyMemory(buffer, await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
