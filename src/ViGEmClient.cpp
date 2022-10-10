@@ -1016,8 +1016,6 @@ VIGEM_ERROR vigem_target_ds4_await_output_report(
 retry:
 	DS4_AWAIT_OUTPUT_INIT(&await, target->SerialNo);
 
-	DBGPRINT(L"Sending IOCTL_DS4_AWAIT_OUTPUT_AVAILABLE for %d", target->SerialNo);
-
 	DeviceIoControl(
 		vigem->hBusDevice,
 		IOCTL_DS4_AWAIT_OUTPUT_AVAILABLE,
@@ -1101,8 +1099,6 @@ VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
 
 retry:
 	DS4_AWAIT_OUTPUT_INIT(&await, target->SerialNo);
-
-	DBGPRINT(L"Sending IOCTL_DS4_AWAIT_OUTPUT_AVAILABLE for %d", target->SerialNo);
 
 	DeviceIoControl(
 		vigem->hBusDevice,
