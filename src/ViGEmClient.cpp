@@ -52,6 +52,8 @@ SOFTWARE.
 #include "Internal.h"
 
 
+#pragma region Diagnostics
+
 #define DBGPRINT(kwszDebugFormatString, ...) _DBGPRINT(__FUNCTIONW__, __LINE__, kwszDebugFormatString, __VA_ARGS__)
 
 VOID _DBGPRINT(LPCWSTR kwszFunction, INT iLineNumber, LPCWSTR kwszDebugFormatString, ...) \
@@ -98,6 +100,8 @@ static void to_hex(unsigned char * in, size_t insz, char * out, size_t outsz)
     }
     pout[-1] = 0;
 }
+
+#pragma endregion
 
 
 //
