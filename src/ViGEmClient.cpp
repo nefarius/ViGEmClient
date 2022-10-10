@@ -1019,9 +1019,7 @@ retry:
 		{
 			return VIGEM_ERROR_INVALID_TARGET;
 		}
-
-		util_dump_as_hex("vigem_target_ds4_await_output_report", &await.Report, sizeof(await.Report));
-
+		
 		/*
 		 * NOTE: check if the driver has set the same serial number we submitted
 		 * to be sure this report belongs to our target device. One queue is used
@@ -1041,6 +1039,8 @@ retry:
 
 		return VIGEM_ERROR_WINAPI;
 	}
+
+	util_dump_as_hex("vigem_target_ds4_await_output_report", await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
 
 	RtlCopyMemory(buffer, await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
 
@@ -1108,8 +1108,6 @@ retry:
 			break;
 		}
 
-		util_dump_as_hex("vigem_target_ds4_await_output_report_timeout", &await.Report, sizeof(await.Report));
-
 		/*
 		 * NOTE: check if the driver has set the same serial number we submitted
 		 * to be sure this report belongs to our target device. One queue is used
@@ -1129,6 +1127,8 @@ retry:
 
 		return VIGEM_ERROR_WINAPI;
 	}
+
+	util_dump_as_hex("vigem_target_ds4_await_output_report_timeout", await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
 
 	RtlCopyMemory(buffer, await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
 
