@@ -150,7 +150,7 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 		if (GetOverlappedResult(pClient->hBusDevice, &lOverlapped, &transferred, TRUE) == 0)
 		{
 			const DWORD error = GetLastError();
-			
+
 			DBGPRINT(L"Win32 Error: 0x%X", error);
 		}
 
@@ -174,7 +174,19 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 		PCHAR dumpBuffer = (PCHAR)calloc(sizeof(DS4_OUTPUT_BUFFER), 3);
 		to_hex(await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER), dumpBuffer, sizeof(DS4_OUTPUT_BUFFER) * 3);
 		OutputDebugStringA(dumpBuffer);
-		
+
+		const PVIGEM_TARGET pTarget = pClient->pTargetsList[await.SerialNo];
+
+		if (pTarget)
+		{
+			memcpy(&pTarget->Ds4CachedOutputReport, &await.Report, sizeof(DS4_OUTPUT_BUFFER));
+			SetEvent(pTarget->Ds4CachedOutputReportUpdateAvailable);
+		}
+		else
+		{
+			DBGPRINT(L"No target to report to for serial %d", await.SerialNo);
+		}
+
 	} while (WaitForSingleObjectEx(pClient->hDS4OutputReportPickupThreadAbortEvent, 0, FALSE) == WAIT_TIMEOUT);
 
 	DEVICE_IO_CONTROL_END;
@@ -387,6 +399,7 @@ PVIGEM_TARGET vigem_target_ds4_alloc(void)
 
 	target->VendorId = 0x054C;
 	target->ProductId = 0x05C4;
+	target->Ds4CachedOutputReportUpdateAvailable = CreateEvent(NULL, FALSE, FALSE, NULL);
 
 	return target;
 }
@@ -608,6 +621,11 @@ VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 
 	if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
 	{
+		if (target->Ds4CachedOutputReportUpdateAvailable)
+		{
+			CloseHandle(target->Ds4CachedOutputReportUpdateAvailable);
+		}
+
 		target->State = VIGEM_TARGET_DISCONNECTED;
 		DEVICE_IO_CONTROL_END;
 
@@ -1179,74 +1197,22 @@ VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
 	if (!buffer)
 		return VIGEM_ERROR_INVALID_PARAMETER;
 
-	//
-	// TODO: remove, debugging only!
-	// 
-	Sleep(100);
+	DBGPRINT(L"Waiting for new report on %d", target->SerialNo);
 
-	DEVICE_IO_CONTROL_BEGIN;
+	const DWORD status = WaitForSingleObject(target->Ds4CachedOutputReportUpdateAvailable, milliseconds);
 
-	DS4_AWAIT_OUTPUT await;
-
-retry:
-	DS4_AWAIT_OUTPUT_INIT(&await, target->SerialNo);
-
-	DeviceIoControl(
-		vigem->hBusDevice,
-		IOCTL_DS4_AWAIT_OUTPUT_AVAILABLE,
-		&await,
-		await.Size,
-		&await,
-		await.Size,
-		&transferred,
-		&lOverlapped
-	);
-
-	if (GetOverlappedResultEx(vigem->hBusDevice, &lOverlapped, &transferred, milliseconds, FALSE) == 0)
+	if (status == WAIT_TIMEOUT)
 	{
-		const DWORD error = GetLastError();
-		DEVICE_IO_CONTROL_END;
-
-		switch (error)
-		{
-		case ERROR_ACCESS_DENIED:
-			return VIGEM_ERROR_INVALID_TARGET;
-		case ERROR_IO_INCOMPLETE:
-		case WAIT_TIMEOUT:
-			CancelIoEx(vigem->hBusDevice, &lOverlapped);
-			return VIGEM_ERROR_TIMED_OUT;
-		default:
-			return VIGEM_ERROR_WINAPI;
-		}
-	}
-
-	/*
-	 * NOTE: check if the driver has set the same serial number we submitted
-	 * to be sure this report belongs to our target device. One queue is used
-	 * for all potentially spawned virtual DS4s due to limitations on how
-	 * DMF_NotifyUserWithRequestMultiple works in combination with device
-	 * objects. The module keeps track on requests issued via the FDO (bus
-	 * driver device) but must notify for one to many virtual DS4 PDOs.
-	 * Therefore, it may happen that a packet bubbles up that doesn't belong
-	 * to our device of interest. The workaround is to check if the serial
-	 * remained the same and if not, fetch the next packet until the queue
-	 * has been processed in its entirety.
-	 */
-	if (await.SerialNo != target->SerialNo)
-	{
-		DBGPRINT(L"Serial mismatch, sent %d, got %d", target->SerialNo, await.SerialNo);
-		goto retry;
+		return VIGEM_ERROR_TIMED_OUT;
 	}
 
 	DBGPRINT(L"Dumping buffer for %d", target->SerialNo);
 
 	PCHAR dumpBuffer = (PCHAR)calloc(sizeof(DS4_OUTPUT_BUFFER), 3);
-	to_hex(await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER), dumpBuffer, sizeof(DS4_OUTPUT_BUFFER) * 3);
+	to_hex(target->Ds4CachedOutputReport.Buffer, sizeof(DS4_OUTPUT_BUFFER), dumpBuffer, sizeof(DS4_OUTPUT_BUFFER) * 3);
 	OutputDebugStringA(dumpBuffer);
 
-	RtlCopyMemory(buffer, await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
-
-	DEVICE_IO_CONTROL_END;
+	RtlCopyMemory(buffer, &target->Ds4CachedOutputReport, sizeof(DS4_OUTPUT_BUFFER));
 
 	return VIGEM_ERROR_NONE;
 }
