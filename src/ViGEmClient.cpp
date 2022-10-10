@@ -90,15 +90,15 @@ static void util_dump_as_hex(PCSTR Prefix, PVOID Buffer, ULONG BufferLength)
 
 		for (ULONG i = 0; i < BufferLength; i++)
 		{
-			(void)sprintf_s(&dumpBuffer[i * 2], 2, "%02X", static_cast<PUCHAR>(Buffer)[i]);
+			_snprintf_s(&dumpBuffer[i * 2], dumpBufferLength, _TRUNCATE, "%02X", static_cast<PUCHAR>(Buffer)[i]);
 		}
 
-		/*DBGPRINT(
+		DBGPRINT(
 			L"%s - Buffer length: %04d, buffer content: %s",
 			Prefix,
 			BufferLength,
 			dumpBuffer
-		);*/
+		);
 		free(dumpBuffer);
 	}
 }
