@@ -42,8 +42,6 @@ SOFTWARE.
 // 
 #include <cstdlib>
 #include <climits>
-#include <vector>
-#include <algorithm>
 #include <thread>
 #include <functional>
 
@@ -51,6 +49,36 @@ SOFTWARE.
 // Internal
 // 
 #include "Internal.h"
+
+
+static void util_dump_as_hex(PCSTR Prefix, PVOID Buffer, ULONG BufferLength)
+{
+	const size_t dumpBufferLength = ((BufferLength * sizeof(CHAR)) * 2) + 1;
+	PSTR dumpBuffer = static_cast<PSTR>(malloc(dumpBufferLength));
+	if (dumpBuffer)
+	{
+		RtlZeroMemory(dumpBuffer, dumpBufferLength);
+
+		for (ULONG i = 0; i < BufferLength; i++)
+		{
+			(void)sprintf_s(&dumpBuffer[i * 2], 2, "%02X", static_cast<PUCHAR>(Buffer)[i]);
+		}
+
+		OutputDebugStringA(Prefix);
+		OutputDebugStringA(dumpBuffer);
+
+		/*
+		TraceVerbose(TRACE_BUSPDO,
+			"%s - Buffer length: %04d, buffer content: %s\n",
+			Prefix,
+			BufferLength,
+			dumpBuffer
+		);
+		*/
+
+		free(dumpBuffer);
+	}
+}
 
 
 //
@@ -991,17 +1019,19 @@ retry:
 			return VIGEM_ERROR_INVALID_TARGET;
 		}
 
+		util_dump_as_hex("vigem_target_ds4_await_output_report", &await.Report, sizeof(await.Report));
+
 		/*
 		 * NOTE: check if the driver has set the same serial number we submitted
 		 * to be sure this report belongs to our target device. One queue is used
 		 * for all potentially spawned virtual DS4s due to limitations on how
-		 * DMF_NotifyUserWithRequestMultiple works in combination with device 
+		 * DMF_NotifyUserWithRequestMultiple works in combination with device
 		 * objects. The module keeps track on requests issued via the FDO (bus
 		 * driver device) but must notify for one to many virtual DS4 PDOs.
 		 * Therefore, it may happen that a packet bubbles up that doesn't belong
 		 * to our device of interest. The workaround is to check if the serial
 		 * remained the same and if not, fetch the next packet until the queue
-		 * has been processed in its entirety. 
+		 * has been processed in its entirety.
 		 */
 		if (error == ERROR_SUCCESS && await.SerialNo != target->SerialNo)
 		{
@@ -1075,17 +1105,19 @@ retry:
 			break;
 		}
 
+		util_dump_as_hex("vigem_target_ds4_await_output_report_timeout", &await.Report, sizeof(await.Report));
+
 		/*
 		 * NOTE: check if the driver has set the same serial number we submitted
 		 * to be sure this report belongs to our target device. One queue is used
 		 * for all potentially spawned virtual DS4s due to limitations on how
-		 * DMF_NotifyUserWithRequestMultiple works in combination with device 
+		 * DMF_NotifyUserWithRequestMultiple works in combination with device
 		 * objects. The module keeps track on requests issued via the FDO (bus
 		 * driver device) but must notify for one to many virtual DS4 PDOs.
 		 * Therefore, it may happen that a packet bubbles up that doesn't belong
 		 * to our device of interest. The workaround is to check if the serial
 		 * remained the same and if not, fetch the next packet until the queue
-		 * has been processed in its entirety. 
+		 * has been processed in its entirety.
 		 */
 		if (error == ERROR_SUCCESS && await.SerialNo != target->SerialNo)
 		{
