@@ -37,21 +37,21 @@ SOFTWARE.
 typedef struct _VIGEM_CLIENT_T
 {
     HANDLE hBusDevice;
+    HANDLE hDS4OutputReportPickupThread;
+    HANDLE hDS4OutputReportPickupThreadAbortEvent;
 
 } VIGEM_CLIENT;
 
 //
 // Represents the (connection) state of a target device object.
 // 
-typedef enum _VIGEM_TARGET_STATE
+typedef enum
 {
     VIGEM_TARGET_NEW,
     VIGEM_TARGET_INITIALIZED,
     VIGEM_TARGET_CONNECTED,
     VIGEM_TARGET_DISCONNECTED
 } VIGEM_TARGET_STATE, *PVIGEM_TARGET_STATE;
-
-
 
 //
 // Represents a virtual gamepad object.

@@ -82,23 +82,23 @@ VOID _DBGPRINT(LPCWSTR kwszFunction, INT iLineNumber, LPCWSTR kwszDebugFormatStr
 	va_end(args);
 }
 
-static void to_hex(unsigned char * in, size_t insz, char * out, size_t outsz)
+static void to_hex(unsigned char* in, size_t insz, char* out, size_t outsz)
 {
-    unsigned char * pin = in;
-    const char * hex = "0123456789ABCDEF";
-    char * pout = out;
-    for(; pin < in+insz; pout +=3, pin++){
-        pout[0] = hex[(*pin>>4) & 0xF];
-        pout[1] = hex[ *pin     & 0xF];
-        pout[2] = ':';
-        if (pout + 3 - out > outsz){
-            /* Better to truncate output string than overflow buffer */
-            /* it would be still better to either return a status */
-            /* or ensure the target buffer is large enough and it never happen */
-            break;
-        }
-    }
-    pout[-1] = 0;
+	unsigned char* pin = in;
+	const char* hex = "0123456789ABCDEF";
+	char* pout = out;
+	for (; pin < in + insz; pout += 3, pin++) {
+		pout[0] = hex[(*pin >> 4) & 0xF];
+		pout[1] = hex[*pin & 0xF];
+		pout[2] = ':';
+		if (pout + 3 - out > outsz) {
+			/* Better to truncate output string than overflow buffer */
+			/* it would be still better to either return a status */
+			/* or ensure the target buffer is large enough and it never happen */
+			break;
+		}
+	}
+	pout[-1] = 0;
 }
 
 #pragma endregion
@@ -124,6 +124,66 @@ PVIGEM_TARGET FORCEINLINE VIGEM_TARGET_ALLOC_INIT(
 	return target;
 }
 
+static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Parameter)
+{
+	const PVIGEM_CLIENT pClient = (PVIGEM_CLIENT)Parameter;
+	DS4_AWAIT_OUTPUT await;
+	DEVICE_IO_CONTROL_BEGIN;
+
+	DBGPRINT(L"Started DS4 Output Report pickup thread for 0x%p", pClient);
+
+	do
+	{
+		DS4_AWAIT_OUTPUT_INIT(&await, 0);
+
+		DeviceIoControl(
+			pClient->hBusDevice,
+			IOCTL_DS4_AWAIT_OUTPUT_AVAILABLE,
+			&await,
+			await.Size,
+			&await,
+			await.Size,
+			&transferred,
+			&lOverlapped
+		);
+
+		if (GetOverlappedResult(pClient->hBusDevice, &lOverlapped, &transferred, TRUE) == 0)
+		{
+			const DWORD error = GetLastError();
+			
+			DBGPRINT(L"Win32 Error: 0x%X", error);
+		}
+
+		/*
+		 * NOTE: check if the driver has set the same serial number we submitted
+		 * to be sure this report belongs to our target device. One queue is used
+		 * for all potentially spawned virtual DS4s due to limitations on how
+		 * DMF_NotifyUserWithRequestMultiple works in combination with device
+		 * objects. The module keeps track on requests issued via the FDO (bus
+		 * driver device) but must notify for one to many virtual DS4 PDOs.
+		 * Therefore, it may happen that a packet bubbles up that doesn't belong
+		 * to our device of interest. The workaround is to check if the serial
+		 * remained the same and if not, fetch the next packet until the queue
+		 * has been processed in its entirety.
+		 */
+
+
+
+		DBGPRINT(L"Dumping buffer for %d", await.SerialNo);
+
+		PCHAR dumpBuffer = (PCHAR)calloc(sizeof(DS4_OUTPUT_BUFFER), 3);
+		to_hex(await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER), dumpBuffer, sizeof(DS4_OUTPUT_BUFFER) * 3);
+		OutputDebugStringA(dumpBuffer);
+		
+	} while (WaitForSingleObjectEx(pClient->hDS4OutputReportPickupThreadAbortEvent, 0, FALSE) == WAIT_TIMEOUT);
+
+	DEVICE_IO_CONTROL_END;
+
+	DBGPRINT(L"Finished DS4 Output Report pickup thread for 0x%p", pClient);
+
+	return 0;
+}
+
 PVIGEM_CLIENT vigem_alloc()
 {
 	const auto driver = static_cast<PVIGEM_CLIENT>(malloc(sizeof(VIGEM_CLIENT)));
@@ -133,6 +193,7 @@ PVIGEM_CLIENT vigem_alloc()
 
 	RtlZeroMemory(driver, sizeof(VIGEM_CLIENT));
 	driver->hBusDevice = INVALID_HANDLE_VALUE;
+	driver->hDS4OutputReportPickupThreadAbortEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
 
 	return driver;
 }
@@ -239,6 +300,15 @@ VIGEM_ERROR vigem_connect(PVIGEM_CLIENT vigem)
 		// wait for result
 		if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
 		{
+			vigem->hDS4OutputReportPickupThread = CreateThread(
+				NULL,
+				0,
+				vigem_internal_ds4_output_report_pickup_handler,
+				vigem,
+				0,
+				NULL
+			);
+
 			error = VIGEM_ERROR_NONE;
 			free(detailDataBuffer);
 			CloseHandle(lOverlapped.hEvent);
@@ -261,13 +331,25 @@ void vigem_disconnect(PVIGEM_CLIENT vigem)
 	if (!vigem)
 		return;
 
+	if (vigem->hDS4OutputReportPickupThread && vigem->hDS4OutputReportPickupThreadAbortEvent)
+	{
+		DBGPRINT(L"Awaiting DS4 thread clean-up for 0x%p", vigem);
+
+		SetEvent(vigem->hDS4OutputReportPickupThreadAbortEvent);
+		WaitForSingleObject(vigem->hDS4OutputReportPickupThread, INFINITE);
+		CloseHandle(vigem->hDS4OutputReportPickupThread);
+		CloseHandle(vigem->hDS4OutputReportPickupThreadAbortEvent);
+	}
+
 	if (vigem->hBusDevice != INVALID_HANDLE_VALUE)
 	{
-		CloseHandle(vigem->hBusDevice);
+		DBGPRINT(L"Closing bus handle for 0x%p", vigem);
 
-		RtlZeroMemory(vigem, sizeof(VIGEM_CLIENT));
+		CloseHandle(vigem->hBusDevice);
 		vigem->hBusDevice = INVALID_HANDLE_VALUE;
 	}
+
+	RtlZeroMemory(vigem, sizeof(VIGEM_CLIENT));
 }
 
 BOOLEAN vigem_target_is_waitable_add_supported(PVIGEM_TARGET target)
@@ -1040,7 +1122,7 @@ retry:
 		{
 			return VIGEM_ERROR_INVALID_TARGET;
 		}
-		
+
 		return VIGEM_ERROR_WINAPI;
 	}
 
@@ -1096,6 +1178,11 @@ VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
 
 	if (!buffer)
 		return VIGEM_ERROR_INVALID_PARAMETER;
+
+	//
+	// TODO: remove, debugging only!
+	// 
+	Sleep(100);
 
 	DEVICE_IO_CONTROL_BEGIN;
 
