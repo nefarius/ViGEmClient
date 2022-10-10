@@ -67,7 +67,7 @@ VOID _DBGPRINT(LPCWSTR kwszFunction, INT iLineNumber, LPCWSTR kwszDebugFormatStr
 	cbFormatString += _vscwprintf(kwszDebugFormatString, args) * sizeof(WCHAR) + 2;
 
 	/* Depending on the size of the format string, allocate space on the stack or the heap. */
-	wszDebugString = (PWCHAR)_malloca(cbFormatString);
+	wszDebugString = (PWCHAR)malloc(cbFormatString);
 
 	/* Populate the buffer with the contents of the format string. */
 	StringCbPrintfW(wszDebugString, cbFormatString, L"[%s:%d] ", kwszFunction, iLineNumber);
@@ -76,7 +76,7 @@ VOID _DBGPRINT(LPCWSTR kwszFunction, INT iLineNumber, LPCWSTR kwszDebugFormatStr
 
 	OutputDebugStringW(wszDebugString);
 
-	_freea(wszDebugString);
+	free(wszDebugString);
 	va_end(args);
 }
 
@@ -94,7 +94,7 @@ static void util_dump_as_hex(PCSTR Prefix, PVOID Buffer, ULONG BufferLength)
 		}
 
 		DBGPRINT(
-			L"%s - Buffer length: %04d, buffer content: %s\n",
+			L"%s - Buffer length: %04d, buffer content: %s",
 			Prefix,
 			BufferLength,
 			dumpBuffer
