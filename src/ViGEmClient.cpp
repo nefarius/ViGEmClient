@@ -93,12 +93,13 @@ static void util_dump_as_hex(PCSTR Prefix, PVOID Buffer, ULONG BufferLength)
 			_snprintf_s(&dumpBuffer[i * 2], dumpBufferLength, _TRUNCATE, "%02X", static_cast<PUCHAR>(Buffer)[i]);
 		}
 
-		DBGPRINT(
+		OutputDebugStringA(dumpBuffer);
+		/*DBGPRINT(
 			L"%s - Buffer length: %04d, buffer content: %s",
 			Prefix,
 			BufferLength,
 			dumpBuffer
-		);
+		);*/
 		free(dumpBuffer);
 	}
 }
