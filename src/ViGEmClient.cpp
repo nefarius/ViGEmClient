@@ -80,28 +80,23 @@ VOID _DBGPRINT(LPCWSTR kwszFunction, INT iLineNumber, LPCWSTR kwszDebugFormatStr
 	va_end(args);
 }
 
-static void util_dump_as_hex(PCSTR Prefix, PVOID Buffer, ULONG BufferLength)
+static void to_hex(unsigned char * in, size_t insz, char * out, size_t outsz)
 {
-	const size_t dumpBufferLength = ((BufferLength * sizeof(CHAR)) * 2) + 1;
-	PSTR dumpBuffer = static_cast<PSTR>(malloc(dumpBufferLength));
-	if (dumpBuffer)
-	{
-		RtlZeroMemory(dumpBuffer, dumpBufferLength);
-
-		for (ULONG i = 0; i < BufferLength; i++)
-		{
-			_snprintf_s(&dumpBuffer[i * 2], dumpBufferLength, _TRUNCATE, "%02X", static_cast<PUCHAR>(Buffer)[i]);
-		}
-
-		OutputDebugStringA(dumpBuffer);
-		/*DBGPRINT(
-			L"%s - Buffer length: %04d, buffer content: %s",
-			Prefix,
-			BufferLength,
-			dumpBuffer
-		);*/
-		free(dumpBuffer);
-	}
+    unsigned char * pin = in;
+    const char * hex = "0123456789ABCDEF";
+    char * pout = out;
+    for(; pin < in+insz; pout +=3, pin++){
+        pout[0] = hex[(*pin>>4) & 0xF];
+        pout[1] = hex[ *pin     & 0xF];
+        pout[2] = ':';
+        if (pout + 3 - out > outsz){
+            /* Better to truncate output string than overflow buffer */
+            /* it would be still better to either return a status */
+            /* or ensure the target buffer is large enough and it never happen */
+            break;
+        }
+    }
+    pout[-1] = 0;
 }
 
 
@@ -1066,7 +1061,10 @@ retry:
 	}
 
 	DBGPRINT(L"Dumping buffer for %d", target->SerialNo);
-	util_dump_as_hex("vigem_target_ds4_await_output_report", await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
+
+	PCHAR dumpBuffer = (PCHAR)calloc(sizeof(DS4_OUTPUT_BUFFER), 3);
+	to_hex(await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER), dumpBuffer, sizeof(DS4_OUTPUT_BUFFER) * 3);
+	OutputDebugStringA(dumpBuffer);
 
 	RtlCopyMemory(buffer, await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
 
@@ -1156,7 +1154,10 @@ retry:
 	}
 
 	DBGPRINT(L"Dumping buffer for %d", target->SerialNo);
-	util_dump_as_hex("vigem_target_ds4_await_output_report_timeout", await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
+
+	PCHAR dumpBuffer = (PCHAR)calloc(sizeof(DS4_OUTPUT_BUFFER), 3);
+	to_hex(await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER), dumpBuffer, sizeof(DS4_OUTPUT_BUFFER) * 3);
+	OutputDebugStringA(dumpBuffer);
 
 	RtlCopyMemory(buffer, await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
 
