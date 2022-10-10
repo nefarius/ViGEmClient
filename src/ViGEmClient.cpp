@@ -1036,26 +1036,26 @@ retry:
 		{
 			return VIGEM_ERROR_INVALID_TARGET;
 		}
-
-		/*
-		 * NOTE: check if the driver has set the same serial number we submitted
-		 * to be sure this report belongs to our target device. One queue is used
-		 * for all potentially spawned virtual DS4s due to limitations on how
-		 * DMF_NotifyUserWithRequestMultiple works in combination with device
-		 * objects. The module keeps track on requests issued via the FDO (bus
-		 * driver device) but must notify for one to many virtual DS4 PDOs.
-		 * Therefore, it may happen that a packet bubbles up that doesn't belong
-		 * to our device of interest. The workaround is to check if the serial
-		 * remained the same and if not, fetch the next packet until the queue
-		 * has been processed in its entirety.
-		 */
-		if (error == ERROR_SUCCESS && await.SerialNo != target->SerialNo)
-		{
-			DBGPRINT(L"Serial mismatch, sent %d, got %d", target->SerialNo, await.SerialNo);
-			goto retry;
-		}
-
+		
 		return VIGEM_ERROR_WINAPI;
+	}
+
+	/*
+	 * NOTE: check if the driver has set the same serial number we submitted
+	 * to be sure this report belongs to our target device. One queue is used
+	 * for all potentially spawned virtual DS4s due to limitations on how
+	 * DMF_NotifyUserWithRequestMultiple works in combination with device
+	 * objects. The module keeps track on requests issued via the FDO (bus
+	 * driver device) but must notify for one to many virtual DS4 PDOs.
+	 * Therefore, it may happen that a packet bubbles up that doesn't belong
+	 * to our device of interest. The workaround is to check if the serial
+	 * remained the same and if not, fetch the next packet until the queue
+	 * has been processed in its entirety.
+	 */
+	if (await.SerialNo != target->SerialNo)
+	{
+		DBGPRINT(L"Serial mismatch, sent %d, got %d", target->SerialNo, await.SerialNo);
+		goto retry;
 	}
 
 	DBGPRINT(L"Dumping buffer for %d", target->SerialNo);
@@ -1125,28 +1125,26 @@ retry:
 			CancelIoEx(vigem->hBusDevice, &lOverlapped);
 			return VIGEM_ERROR_TIMED_OUT;
 		default:
-			break;
+			return VIGEM_ERROR_WINAPI;
 		}
+	}
 
-		/*
-		 * NOTE: check if the driver has set the same serial number we submitted
-		 * to be sure this report belongs to our target device. One queue is used
-		 * for all potentially spawned virtual DS4s due to limitations on how
-		 * DMF_NotifyUserWithRequestMultiple works in combination with device
-		 * objects. The module keeps track on requests issued via the FDO (bus
-		 * driver device) but must notify for one to many virtual DS4 PDOs.
-		 * Therefore, it may happen that a packet bubbles up that doesn't belong
-		 * to our device of interest. The workaround is to check if the serial
-		 * remained the same and if not, fetch the next packet until the queue
-		 * has been processed in its entirety.
-		 */
-		if (error == ERROR_SUCCESS && await.SerialNo != target->SerialNo)
-		{
-			DBGPRINT(L"Serial mismatch, sent %d, got %d", target->SerialNo, await.SerialNo);
-			goto retry;
-		}
-
-		return VIGEM_ERROR_WINAPI;
+	/*
+	 * NOTE: check if the driver has set the same serial number we submitted
+	 * to be sure this report belongs to our target device. One queue is used
+	 * for all potentially spawned virtual DS4s due to limitations on how
+	 * DMF_NotifyUserWithRequestMultiple works in combination with device
+	 * objects. The module keeps track on requests issued via the FDO (bus
+	 * driver device) but must notify for one to many virtual DS4 PDOs.
+	 * Therefore, it may happen that a packet bubbles up that doesn't belong
+	 * to our device of interest. The workaround is to check if the serial
+	 * remained the same and if not, fetch the next packet until the queue
+	 * has been processed in its entirety.
+	 */
+	if (await.SerialNo != target->SerialNo)
+	{
+		DBGPRINT(L"Serial mismatch, sent %d, got %d", target->SerialNo, await.SerialNo);
+		goto retry;
 	}
 
 	DBGPRINT(L"Dumping buffer for %d", target->SerialNo);
