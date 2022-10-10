@@ -51,6 +51,8 @@ SOFTWARE.
 // 
 #include "Internal.h"
 
+//#define VIGEM_VERBOSE_LOGGING_ENABLED
+
 
 #pragma region Diagnostics
 
@@ -154,26 +156,13 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 			DBGPRINT(L"Win32 Error: 0x%X", error);
 		}
 
-		/*
-		 * NOTE: check if the driver has set the same serial number we submitted
-		 * to be sure this report belongs to our target device. One queue is used
-		 * for all potentially spawned virtual DS4s due to limitations on how
-		 * DMF_NotifyUserWithRequestMultiple works in combination with device
-		 * objects. The module keeps track on requests issued via the FDO (bus
-		 * driver device) but must notify for one to many virtual DS4 PDOs.
-		 * Therefore, it may happen that a packet bubbles up that doesn't belong
-		 * to our device of interest. The workaround is to check if the serial
-		 * remained the same and if not, fetch the next packet until the queue
-		 * has been processed in its entirety.
-		 */
-
-
-
+#if defined(VIGEM_VERBOSE_LOGGING_ENABLED)
 		DBGPRINT(L"Dumping buffer for %d", await.SerialNo);
 
-		PCHAR dumpBuffer = (PCHAR)calloc(sizeof(DS4_OUTPUT_BUFFER), 3);
+		const PCHAR dumpBuffer = (PCHAR)calloc(sizeof(DS4_OUTPUT_BUFFER), 3);
 		to_hex(await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER), dumpBuffer, sizeof(DS4_OUTPUT_BUFFER) * 3);
 		OutputDebugStringA(dumpBuffer);
+#endif
 
 		const PVIGEM_TARGET pTarget = pClient->pTargetsList[await.SerialNo];
 
@@ -1105,81 +1094,7 @@ VIGEM_ERROR vigem_target_ds4_await_output_report(
 	PDS4_OUTPUT_BUFFER buffer
 )
 {
-	if (!vigem)
-		return VIGEM_ERROR_BUS_INVALID_HANDLE;
-
-	if (!target)
-		return VIGEM_ERROR_INVALID_TARGET;
-
-	if (vigem->hBusDevice == INVALID_HANDLE_VALUE)
-		return VIGEM_ERROR_BUS_NOT_FOUND;
-
-	if (target->SerialNo == 0)
-		return VIGEM_ERROR_INVALID_TARGET;
-
-	if (!buffer)
-		return VIGEM_ERROR_INVALID_PARAMETER;
-
-	DEVICE_IO_CONTROL_BEGIN;
-
-	DS4_AWAIT_OUTPUT await;
-
-retry:
-	DS4_AWAIT_OUTPUT_INIT(&await, target->SerialNo);
-
-	DeviceIoControl(
-		vigem->hBusDevice,
-		IOCTL_DS4_AWAIT_OUTPUT_AVAILABLE,
-		&await,
-		await.Size,
-		&await,
-		await.Size,
-		&transferred,
-		&lOverlapped
-	);
-
-	if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) == 0)
-	{
-		const DWORD error = GetLastError();
-		DEVICE_IO_CONTROL_END;
-
-		if (error == ERROR_ACCESS_DENIED)
-		{
-			return VIGEM_ERROR_INVALID_TARGET;
-		}
-
-		return VIGEM_ERROR_WINAPI;
-	}
-
-	/*
-	 * NOTE: check if the driver has set the same serial number we submitted
-	 * to be sure this report belongs to our target device. One queue is used
-	 * for all potentially spawned virtual DS4s due to limitations on how
-	 * DMF_NotifyUserWithRequestMultiple works in combination with device
-	 * objects. The module keeps track on requests issued via the FDO (bus
-	 * driver device) but must notify for one to many virtual DS4 PDOs.
-	 * Therefore, it may happen that a packet bubbles up that doesn't belong
-	 * to our device of interest. The workaround is to check if the serial
-	 * remained the same and if not, fetch the next packet until the queue
-	 * has been processed in its entirety.
-	 */
-	if (await.SerialNo != target->SerialNo)
-	{
-		DBGPRINT(L"Serial mismatch, sent %d, got %d", target->SerialNo, await.SerialNo);
-		goto retry;
-	}
-
-	DBGPRINT(L"Dumping buffer for %d", target->SerialNo);
-
-	PCHAR dumpBuffer = (PCHAR)calloc(sizeof(DS4_OUTPUT_BUFFER), 3);
-	to_hex(await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER), dumpBuffer, sizeof(DS4_OUTPUT_BUFFER) * 3);
-	OutputDebugStringA(dumpBuffer);
-
-	RtlCopyMemory(buffer, await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER));
-
-	DEVICE_IO_CONTROL_END;
-
-	return VIGEM_ERROR_NONE;
+	return vigem_target_ds4_await_output_report_timeout(vigem, target, INFINITE, buffer);
 }
 
 VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
@@ -1204,8 +1119,6 @@ VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
 	if (!buffer)
 		return VIGEM_ERROR_INVALID_PARAMETER;
 
-	DBGPRINT(L"Waiting for new report on %d", target->SerialNo);
-
 	const DWORD status = WaitForSingleObject(target->Ds4CachedOutputReportUpdateAvailable, milliseconds);
 
 	if (status == WAIT_TIMEOUT)
@@ -1213,11 +1126,13 @@ VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
 		return VIGEM_ERROR_TIMED_OUT;
 	}
 
+#if defined(VIGEM_VERBOSE_LOGGING_ENABLED)
 	DBGPRINT(L"Dumping buffer for %d", target->SerialNo);
 
-	PCHAR dumpBuffer = (PCHAR)calloc(sizeof(DS4_OUTPUT_BUFFER), 3);
+	const PCHAR dumpBuffer = (PCHAR)calloc(sizeof(DS4_OUTPUT_BUFFER), 3);
 	to_hex(target->Ds4CachedOutputReport.Buffer, sizeof(DS4_OUTPUT_BUFFER), dumpBuffer, sizeof(DS4_OUTPUT_BUFFER) * 3);
 	OutputDebugStringA(dumpBuffer);
+#endif
 
 	RtlCopyMemory(buffer, &target->Ds4CachedOutputReport, sizeof(DS4_OUTPUT_BUFFER));
 
