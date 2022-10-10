@@ -99,9 +99,6 @@ static void util_dump_as_hex(PCSTR Prefix, PVOID Buffer, ULONG BufferLength)
 			BufferLength,
 			dumpBuffer
 		);*/
-
-		OutputDebugStringA(dumpBuffer);
-
 		free(dumpBuffer);
 	}
 }
