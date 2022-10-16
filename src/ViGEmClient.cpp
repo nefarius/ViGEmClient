@@ -56,7 +56,11 @@ SOFTWARE.
 
 #pragma region Diagnostics
 
+#ifdef _DEBUG
 #define DBGPRINT(kwszDebugFormatString, ...) _DBGPRINT(__FUNCTIONW__, __LINE__, kwszDebugFormatString, __VA_ARGS__)
+#else
+#define DBGPRINT( kwszDebugFormatString, ... ) ;;
+#endif
 
 VOID _DBGPRINT(LPCWSTR kwszFunction, INT iLineNumber, LPCWSTR kwszDebugFormatString, ...)
 {
