@@ -337,7 +337,7 @@ void vigem_disconnect(PVIGEM_CLIENT vigem)
 		DBGPRINT(L"Awaiting DS4 thread clean-up for 0x%p", vigem);
 
 		SetEvent(vigem->hDS4OutputReportPickupThreadAbortEvent);
-		CancelIo(vigem->hBusDevice);
+		CancelIoEx(vigem->hBusDevice, NULL);
                 WaitForSingleObject(vigem->hDS4OutputReportPickupThread, INFINITE);
 		CloseHandle(vigem->hDS4OutputReportPickupThread);
 		CloseHandle(vigem->hDS4OutputReportPickupThreadAbortEvent);
