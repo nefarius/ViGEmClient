@@ -334,17 +334,18 @@ void vigem_disconnect(PVIGEM_CLIENT vigem)
 	if (!vigem)
 		return;
 
-	if (vigem->hBusDevice != INVALID_HANDLE_VALUE)
-	{
-		DBGPRINT(L"Cancelling all I/O for 0x%p", vigem);
-		CancelIoEx(vigem->hBusDevice, nullptr);
-	}
-
 	if (vigem->hDS4OutputReportPickupThread && vigem->hDS4OutputReportPickupThreadAbortEvent)
 	{
 		DBGPRINT(L"Awaiting DS4 thread clean-up for 0x%p", vigem);
 
 		SetEvent(vigem->hDS4OutputReportPickupThreadAbortEvent);
+
+		if (vigem->hBusDevice != INVALID_HANDLE_VALUE)
+		{
+			DBGPRINT(L"Cancelling all I/O for 0x%p", vigem);
+			CancelIoEx(vigem->hBusDevice, nullptr);
+		}
+
 		WaitForSingleObject(vigem->hDS4OutputReportPickupThread, INFINITE);
 		CloseHandle(vigem->hDS4OutputReportPickupThread);
 		CloseHandle(vigem->hDS4OutputReportPickupThreadAbortEvent);
@@ -965,8 +966,8 @@ VIGEM_ERROR vigem_target_ds4_update(
 }
 
 VIGEM_ERROR vigem_target_ds4_update_ex(
-	PVIGEM_CLIENT vigem, 
-	PVIGEM_TARGET target, 
+	PVIGEM_CLIENT vigem,
+	PVIGEM_TARGET target,
 	DS4_REPORT_EX report
 )
 {
@@ -1139,7 +1140,7 @@ VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
 	if (status == WAIT_TIMEOUT)
 	{
 		return VIGEM_ERROR_TIMED_OUT;
-	}
+}
 
 #if defined(VIGEM_VERBOSE_LOGGING_ENABLED)
 	DBGPRINT(L"Dumping buffer for %d", target->SerialNo);
