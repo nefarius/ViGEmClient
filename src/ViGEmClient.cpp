@@ -58,11 +58,11 @@ SOFTWARE.
 
 #define DBGPRINT(kwszDebugFormatString, ...) _DBGPRINT(__FUNCTIONW__, __LINE__, kwszDebugFormatString, __VA_ARGS__)
 
-VOID _DBGPRINT(LPCWSTR kwszFunction, INT iLineNumber, LPCWSTR kwszDebugFormatString, ...) \
+VOID _DBGPRINT(LPCWSTR kwszFunction, INT iLineNumber, LPCWSTR kwszDebugFormatString, ...)
 {
 	INT cbFormatString = 0;
 	va_list args;
-	PWCHAR wszDebugString = NULL;
+	PWCHAR wszDebugString = nullptr;
 	size_t st_Offset = 0;
 
 	va_start(args, kwszDebugFormatString);
@@ -71,12 +71,13 @@ VOID _DBGPRINT(LPCWSTR kwszFunction, INT iLineNumber, LPCWSTR kwszDebugFormatStr
 	cbFormatString += _vscwprintf(kwszDebugFormatString, args) * sizeof(WCHAR) + 2;
 
 	/* Depending on the size of the format string, allocate space on the stack or the heap. */
-	wszDebugString = (PWCHAR)_malloca(cbFormatString);
+	wszDebugString = static_cast<PWCHAR>((0));
 
 	/* Populate the buffer with the contents of the format string. */
 	StringCbPrintfW(wszDebugString, cbFormatString, L"[%s:%d] ", kwszFunction, iLineNumber);
 	StringCbLengthW(wszDebugString, cbFormatString, &st_Offset);
-	StringCbVPrintfW(&wszDebugString[st_Offset / sizeof(WCHAR)], cbFormatString - st_Offset, kwszDebugFormatString, args);
+	StringCbVPrintfW(&wszDebugString[st_Offset / sizeof(WCHAR)], cbFormatString - st_Offset, kwszDebugFormatString,
+		args);
 
 	OutputDebugStringW(wszDebugString);
 
@@ -87,13 +88,15 @@ VOID _DBGPRINT(LPCWSTR kwszFunction, INT iLineNumber, LPCWSTR kwszDebugFormatStr
 static void to_hex(unsigned char* in, size_t insz, char* out, size_t outsz)
 {
 	unsigned char* pin = in;
-	const char* hex = "0123456789ABCDEF";
+	auto hex = "0123456789ABCDEF";
 	char* pout = out;
-	for (; pin < in + insz; pout += 3, pin++) {
+	for (; pin < in + insz; pout += 3, pin++)
+	{
 		pout[0] = hex[(*pin >> 4) & 0xF];
 		pout[1] = hex[*pin & 0xF];
 		pout[2] = ':';
-		if (pout + 3 - out > outsz) {
+		if (pout + 3 - out > outsz)
+		{
 			/* Better to truncate output string than overflow buffer */
 			/* it would be still better to either return a status */
 			/* or ensure the target buffer is large enough and it never happen */
@@ -128,7 +131,7 @@ PVIGEM_TARGET FORCEINLINE VIGEM_TARGET_ALLOC_INIT(
 
 static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Parameter)
 {
-	const PVIGEM_CLIENT pClient = (PVIGEM_CLIENT)Parameter;
+	const auto pClient = static_cast<PVIGEM_CLIENT>(Parameter);
 	DS4_AWAIT_OUTPUT await;
 	DEVICE_IO_CONTROL_BEGIN;
 
@@ -175,7 +178,6 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 		{
 			DBGPRINT(L"No target to report to for serial %d", await.SerialNo);
 		}
-
 	} while (WaitForSingleObjectEx(pClient->hDS4OutputReportPickupThreadAbortEvent, 0, FALSE) == WAIT_TIMEOUT);
 
 	DEVICE_IO_CONTROL_END;
@@ -194,7 +196,7 @@ PVIGEM_CLIENT vigem_alloc()
 
 	RtlZeroMemory(driver, sizeof(VIGEM_CLIENT));
 	driver->hBusDevice = INVALID_HANDLE_VALUE;
-	driver->hDS4OutputReportPickupThreadAbortEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
+	driver->hDS4OutputReportPickupThreadAbortEvent = CreateEvent(nullptr, TRUE, FALSE, nullptr);
 
 	return driver;
 }
@@ -302,12 +304,12 @@ VIGEM_ERROR vigem_connect(PVIGEM_CLIENT vigem)
 		if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
 		{
 			vigem->hDS4OutputReportPickupThread = CreateThread(
-				NULL,
+				nullptr,
 				0,
 				vigem_internal_ds4_output_report_pickup_handler,
 				vigem,
 				0,
-				NULL
+				nullptr
 			);
 
 			error = VIGEM_ERROR_NONE;
@@ -332,15 +334,22 @@ void vigem_disconnect(PVIGEM_CLIENT vigem)
 	if (!vigem)
 		return;
 
+	if (vigem->hBusDevice != INVALID_HANDLE_VALUE)
+	{
+		DBGPRINT(L"Cancelling all I/O for 0x%p", vigem);
+		CancelIoEx(vigem->hBusDevice, nullptr);
+	}
+
 	if (vigem->hDS4OutputReportPickupThread && vigem->hDS4OutputReportPickupThreadAbortEvent)
 	{
 		DBGPRINT(L"Awaiting DS4 thread clean-up for 0x%p", vigem);
 
 		SetEvent(vigem->hDS4OutputReportPickupThreadAbortEvent);
-		CancelIoEx(vigem->hBusDevice, NULL);
-                WaitForSingleObject(vigem->hDS4OutputReportPickupThread, INFINITE);
+		WaitForSingleObject(vigem->hDS4OutputReportPickupThread, INFINITE);
 		CloseHandle(vigem->hDS4OutputReportPickupThread);
 		CloseHandle(vigem->hDS4OutputReportPickupThreadAbortEvent);
+
+		DBGPRINT(L"DS4 thread clean-up for 0x%p finished", vigem);
 	}
 
 	if (vigem->hBusDevice != INVALID_HANDLE_VALUE)
@@ -389,7 +398,7 @@ PVIGEM_TARGET vigem_target_ds4_alloc(void)
 
 	target->VendorId = 0x054C;
 	target->ProductId = 0x05C4;
-	target->Ds4CachedOutputReportUpdateAvailable = CreateEvent(NULL, FALSE, FALSE, NULL);
+	target->Ds4CachedOutputReportUpdateAvailable = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
 	return target;
 }
@@ -411,7 +420,8 @@ VIGEM_ERROR vigem_target_add(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 	OVERLAPPED olWait = { 0 };
 	olWait.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
 
-	do {
+	do
+	{
 		if (!vigem)
 		{
 			error = VIGEM_ERROR_BUS_INVALID_HANDLE;
@@ -621,7 +631,7 @@ VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 			CloseHandle(target->Ds4CachedOutputReportUpdateAvailable);
 		}
 
-		vigem->pTargetsList[target->SerialNo] = NULL;
+		vigem->pTargetsList[target->SerialNo] = nullptr;
 
 		target->State = VIGEM_TARGET_DISCONNECTED;
 		DEVICE_IO_CONTROL_END;
@@ -748,7 +758,7 @@ VIGEM_ERROR vigem_target_ds4_register_notification(
 	target->Notification = reinterpret_cast<FARPROC>(notification);
 	target->NotificationUserData = userData;
 
-	if (target->CancelNotificationThreadEvent == 0)
+	if (target->CancelNotificationThreadEvent == nullptr)
 		target->CancelNotificationThreadEvent = CreateEvent(
 			nullptr,
 			TRUE,
@@ -816,7 +826,7 @@ VIGEM_ERROR vigem_target_ds4_register_notification(
 
 void vigem_target_x360_unregister_notification(PVIGEM_TARGET target)
 {
-	if (target->CancelNotificationThreadEvent != 0)
+	if (target->CancelNotificationThreadEvent != nullptr)
 		SetEvent(target->CancelNotificationThreadEvent);
 
 	if (target->CancelNotificationThreadEvent != nullptr)
@@ -954,7 +964,11 @@ VIGEM_ERROR vigem_target_ds4_update(
 	return VIGEM_ERROR_NONE;
 }
 
-VIGEM_ERROR vigem_target_ds4_update_ex(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, DS4_REPORT_EX report)
+VIGEM_ERROR vigem_target_ds4_update_ex(
+	PVIGEM_CLIENT vigem, 
+	PVIGEM_TARGET target, 
+	DS4_REPORT_EX report
+)
 {
 	if (!vigem)
 		return VIGEM_ERROR_BUS_INVALID_HANDLE;
