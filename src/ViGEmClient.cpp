@@ -64,6 +64,7 @@ SOFTWARE.
 
 VOID _DBGPRINT(LPCWSTR kwszFunction, INT iLineNumber, LPCWSTR kwszDebugFormatString, ...)
 {
+#if defined(VIGEM_VERBOSE_LOGGING_ENABLED)
 	INT cbFormatString = 0;
 	va_list args;
 	PWCHAR wszDebugString = nullptr;
@@ -87,6 +88,11 @@ VOID _DBGPRINT(LPCWSTR kwszFunction, INT iLineNumber, LPCWSTR kwszDebugFormatStr
 
 	_freea(wszDebugString);
 	va_end(args);
+#else
+	std::ignore = kwszFunction;
+	std::ignore = iLineNumber;
+	std::ignore = kwszDebugFormatString;
+#endif
 }
 
 static void to_hex(unsigned char* in, size_t insz, char* out, size_t outsz)
