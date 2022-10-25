@@ -159,6 +159,15 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 		if (GetOverlappedResult(pClient->hBusDevice, &lOverlapped, &transferred, TRUE) == 0)
 		{
 			const DWORD error = GetLastError();
+			
+			//
+			// Backwards compatibility with version pre-1.19, where this IOCTL doesn't exist
+			// 
+			if (error == ERROR_INVALID_PARAMETER)
+			{
+				DBGPRINT(L"Currently used driver version doesn't support this request, aborting");
+				break;
+			}
 
 			DBGPRINT(L"Win32 Error: 0x%X", error);
 		}
