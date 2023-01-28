@@ -72,21 +72,30 @@ VOID _DBGPRINT(LPCWSTR kwszFunction, INT iLineNumber, LPCWSTR kwszDebugFormatStr
 
 	va_start(args, kwszDebugFormatString);
 
+	// Get size of message string from formatting args
 	cbFormatString = _scwprintf(L"[%s:%d] ", kwszFunction, iLineNumber) * sizeof(WCHAR);
-	cbFormatString += _vscwprintf(kwszDebugFormatString, args) * sizeof(WCHAR) + 2;
+	cbFormatString += _vscwprintf(kwszDebugFormatString, args) * sizeof(WCHAR);
+	cbFormatString += sizeof(WCHAR); // for null-terminator
 
-	/* Depending on the size of the format string, allocate space on the stack or the heap. */
-	wszDebugString = static_cast<PWCHAR>((0));
+	// Allocate message string
+	wszDebugString = static_cast<PWCHAR>(malloc(cbFormatString));
+	if (wszDebugString == nullptr)
+		return;
 
-	/* Populate the buffer with the contents of the format string. */
+	// Populate the buffer with the contents of the format string
 	StringCbPrintfW(wszDebugString, cbFormatString, L"[%s:%d] ", kwszFunction, iLineNumber);
 	StringCbLengthW(wszDebugString, cbFormatString, &st_Offset);
 	StringCbVPrintfW(&wszDebugString[st_Offset / sizeof(WCHAR)], cbFormatString - st_Offset, kwszDebugFormatString,
 		args);
 
-	OutputDebugStringW(wszDebugString);
+	// Ensure null-terminated
+	wszDebugString[cbFormatString - 1] = L'\0';
 
-	_freea(wszDebugString);
+	// Output message
+	OutputDebugStringW(wszDebugString);
+	OutputDebugStringW(L"\n");
+
+	free(wszDebugString);
 	va_end(args);
 #else
 	std::ignore = kwszFunction;
