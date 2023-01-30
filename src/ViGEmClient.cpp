@@ -217,8 +217,12 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 		DBGPRINT(L"Dumping buffer for %d", await.SerialNo);
 
 		const PCHAR dumpBuffer = (PCHAR)calloc(sizeof(DS4_OUTPUT_BUFFER), 3);
-		to_hex(await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER), dumpBuffer, sizeof(DS4_OUTPUT_BUFFER) * 3);
-		OutputDebugStringA(dumpBuffer);
+		if (dumpBuffer != nullptr)
+		{
+			to_hex(await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER), dumpBuffer, sizeof(DS4_OUTPUT_BUFFER) * 3);
+			OutputDebugStringA(dumpBuffer);
+			free(dumpBuffer);
+		}
 #endif
 
 		const PVIGEM_TARGET pTarget = pClient->pTargetsList[await.SerialNo];
