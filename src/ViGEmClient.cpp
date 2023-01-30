@@ -72,21 +72,30 @@ VOID _DBGPRINT(LPCWSTR kwszFunction, INT iLineNumber, LPCWSTR kwszDebugFormatStr
 
 	va_start(args, kwszDebugFormatString);
 
+	// Get size of message string from formatting args
 	cbFormatString = _scwprintf(L"[%s:%d] ", kwszFunction, iLineNumber) * sizeof(WCHAR);
-	cbFormatString += _vscwprintf(kwszDebugFormatString, args) * sizeof(WCHAR) + 2;
+	cbFormatString += _vscwprintf(kwszDebugFormatString, args) * sizeof(WCHAR);
+	cbFormatString += sizeof(WCHAR); // for null-terminator
 
-	/* Depending on the size of the format string, allocate space on the stack or the heap. */
-	wszDebugString = static_cast<PWCHAR>((0));
+	// Allocate message string
+	wszDebugString = static_cast<PWCHAR>(malloc(cbFormatString));
+	if (wszDebugString == nullptr)
+		return;
 
-	/* Populate the buffer with the contents of the format string. */
+	// Populate the buffer with the contents of the format string
 	StringCbPrintfW(wszDebugString, cbFormatString, L"[%s:%d] ", kwszFunction, iLineNumber);
 	StringCbLengthW(wszDebugString, cbFormatString, &st_Offset);
 	StringCbVPrintfW(&wszDebugString[st_Offset / sizeof(WCHAR)], cbFormatString - st_Offset, kwszDebugFormatString,
 		args);
 
-	OutputDebugStringW(wszDebugString);
+	// Ensure null-terminated
+	wszDebugString[cbFormatString - 1] = L'\0';
 
-	_freea(wszDebugString);
+	// Output message
+	OutputDebugStringW(wszDebugString);
+	OutputDebugStringW(L"\n");
+
+	free(wszDebugString);
 	va_end(args);
 #else
 	std::ignore = kwszFunction;
@@ -105,7 +114,7 @@ static void to_hex(unsigned char* in, size_t insz, char* out, size_t outsz)
 		pout[0] = hex[(*pin >> 4) & 0xF];
 		pout[1] = hex[*pin & 0xF];
 		pout[2] = ':';
-		if (pout + 3 - out > outsz)
+		if ((size_t)(pout + 3 - out) > outsz)
 		{
 			/* Better to truncate output string than overflow buffer */
 			/* it would be still better to either return a status */
@@ -145,6 +154,9 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 	DS4_AWAIT_OUTPUT await;
 	DEVICE_IO_CONTROL_BEGIN;
 
+	// Abort event first so that in the case both are signalled at once, the result will be for the abort event
+	HANDLE waitEvents[] = { pClient->hDS4OutputReportPickupThreadAbortEvent, lOverlapped.hEvent };
+
 	DBGPRINT(L"Started DS4 Output Report pickup thread for 0x%p", pClient);
 
 	do
@@ -162,7 +174,24 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 			&lOverlapped
 		);
 
-		if (GetOverlappedResult(pClient->hBusDevice, &lOverlapped, &transferred, TRUE) == 0)
+		DWORD waitResult = WaitForMultipleObjects((DWORD)std::size(waitEvents), waitEvents, FALSE, INFINITE);
+		if (waitResult == WAIT_OBJECT_0)
+		{
+			DBGPRINT(L"Abort event signalled during read, exiting thread");
+			break;
+		}
+		else if (waitResult == WAIT_FAILED)
+		{
+			const DWORD error = GetLastError();
+			DBGPRINT(L"Win32 error from multi-object wait: 0x%X", error);
+			continue;
+		}
+		else if (waitResult != WAIT_OBJECT_0 + 1)
+		{
+			DBGPRINT(L"Unexpected result from multi-object wait: 0x%X", waitResult);
+		}
+
+		if (GetOverlappedResult(pClient->hBusDevice, &lOverlapped, &transferred, TRUE) == FALSE)
 		{
 			const DWORD error = GetLastError();
 			
@@ -174,16 +203,26 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 				DBGPRINT(L"Currently used driver version doesn't support this request, aborting");
 				break;
 			}
+			else if (error == ERROR_OPERATION_ABORTED)
+			{
+				DBGPRINT(L"Read has been cancelled, aborting");
+				break;
+			}
 
-			DBGPRINT(L"Win32 Error: 0x%X", error);
+			DBGPRINT(L"Win32 error from overlapped result: 0x%X", error);
+			continue;
 		}
 
 #if defined(VIGEM_VERBOSE_LOGGING_ENABLED)
 		DBGPRINT(L"Dumping buffer for %d", await.SerialNo);
 
 		const PCHAR dumpBuffer = (PCHAR)calloc(sizeof(DS4_OUTPUT_BUFFER), 3);
-		to_hex(await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER), dumpBuffer, sizeof(DS4_OUTPUT_BUFFER) * 3);
-		OutputDebugStringA(dumpBuffer);
+		if (dumpBuffer != nullptr)
+		{
+			to_hex(await.Report.Buffer, sizeof(DS4_OUTPUT_BUFFER), dumpBuffer, sizeof(DS4_OUTPUT_BUFFER) * 3);
+			OutputDebugStringA(dumpBuffer);
+			free(dumpBuffer);
+		}
 #endif
 
 		const PVIGEM_TARGET pTarget = pClient->pTargetsList[await.SerialNo];

@@ -2,6 +2,7 @@
 # This .gitignore file was automatically created by Microsoft(R) Visual Studio.
 ################################################################################
 
+.vscode/
 /.vs/ViGEmBus/v15
 /build/bin/Release
 /build/obj/Release
