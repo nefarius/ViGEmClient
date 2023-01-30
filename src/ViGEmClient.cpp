@@ -154,6 +154,9 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 	DS4_AWAIT_OUTPUT await;
 	DEVICE_IO_CONTROL_BEGIN;
 
+	// Abort event first so that in the case both are signalled at once, the result will be for the abort event
+	HANDLE waitEvents[] = { pClient->hDS4OutputReportPickupThreadAbortEvent, lOverlapped.hEvent };
+
 	DBGPRINT(L"Started DS4 Output Report pickup thread for 0x%p", pClient);
 
 	do
@@ -171,6 +174,23 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 			&lOverlapped
 		);
 
+		DWORD waitResult = WaitForMultipleObjects((DWORD)std::size(waitEvents), waitEvents, FALSE, INFINITE);
+		if (waitResult == WAIT_OBJECT_0)
+		{
+			DBGPRINT(L"Abort event signalled during read, exiting thread");
+			break;
+		}
+		else if (waitResult == WAIT_FAILED)
+		{
+			const DWORD error = GetLastError();
+			DBGPRINT(L"Win32 error from multi-object wait: 0x%X", error);
+			continue;
+		}
+		else if (waitResult != WAIT_OBJECT_0 + 1)
+		{
+			DBGPRINT(L"Unexpected result from multi-object wait: 0x%X", waitResult);
+		}
+
 		if (GetOverlappedResult(pClient->hBusDevice, &lOverlapped, &transferred, TRUE) == 0)
 		{
 			const DWORD error = GetLastError();
@@ -183,8 +203,13 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 				DBGPRINT(L"Currently used driver version doesn't support this request, aborting");
 				break;
 			}
+			else if (error == ERROR_OPERATION_ABORTED)
+			{
+				DBGPRINT(L"Read has been cancelled, aborting");
+				break;
+			}
 
-			DBGPRINT(L"Win32 Error: 0x%X", error);
+			DBGPRINT(L"Win32 error from overlapped result: 0x%X", error);
 		}
 
 #if defined(VIGEM_VERBOSE_LOGGING_ENABLED)
