@@ -210,6 +210,7 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 			}
 
 			DBGPRINT(L"Win32 error from overlapped result: 0x%X", error);
+			continue;
 		}
 
 #if defined(VIGEM_VERBOSE_LOGGING_ENABLED)
