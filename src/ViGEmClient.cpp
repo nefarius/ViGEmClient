@@ -191,7 +191,7 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 			DBGPRINT(L"Unexpected result from multi-object wait: 0x%X", waitResult);
 		}
 
-		if (GetOverlappedResult(pClient->hBusDevice, &lOverlapped, &transferred, TRUE) == 0)
+		if (GetOverlappedResult(pClient->hBusDevice, &lOverlapped, &transferred, TRUE) == FALSE)
 		{
 			const DWORD error = GetLastError();
 			
