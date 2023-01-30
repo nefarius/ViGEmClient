@@ -114,7 +114,7 @@ static void to_hex(unsigned char* in, size_t insz, char* out, size_t outsz)
 		pout[0] = hex[(*pin >> 4) & 0xF];
 		pout[1] = hex[*pin & 0xF];
 		pout[2] = ':';
-		if (pout + 3 - out > outsz)
+		if ((size_t)(pout + 3 - out) > outsz)
 		{
 			/* Better to truncate output string than overflow buffer */
 			/* it would be still better to either return a status */
