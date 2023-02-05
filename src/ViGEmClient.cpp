@@ -277,9 +277,9 @@ PVIGEM_CLIENT vigem_alloc()
 
 	driver->hBusDevice = INVALID_HANDLE_VALUE;
 	driver->hDS4OutputReportPickupThreadAbortEvent = CreateEvent(
-		nullptr, 
-		TRUE, 
-		FALSE, 
+		nullptr,
+		TRUE,
+		FALSE,
 		nullptr
 	);
 
@@ -478,9 +478,9 @@ PVIGEM_TARGET vigem_target_ds4_alloc(void)
 	target->VendorId = 0x054C;
 	target->ProductId = 0x05C4;
 	target->Ds4CachedOutputReportUpdateAvailable = CreateEvent(
-		nullptr, 
+		nullptr,
 		FALSE,
-		FALSE, 
+		FALSE,
 		nullptr
 	);
 
@@ -490,7 +490,14 @@ PVIGEM_TARGET vigem_target_ds4_alloc(void)
 void vigem_target_free(PVIGEM_TARGET target)
 {
 	if (target)
+	{
+		if (target->Ds4CachedOutputReportUpdateAvailable)
+		{
+			CloseHandle(target->Ds4CachedOutputReportUpdateAvailable);
+		}
+
 		free(target);
+	}
 }
 
 VIGEM_ERROR vigem_target_add(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
@@ -710,11 +717,6 @@ VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 
 	if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
 	{
-		if (target->Ds4CachedOutputReportUpdateAvailable)
-		{
-			CloseHandle(target->Ds4CachedOutputReportUpdateAvailable);
-		}
-
 		vigem->pTargetsList[target->SerialNo] = nullptr;
 
 		target->State = VIGEM_TARGET_DISCONNECTED;
