@@ -430,7 +430,7 @@ void vigem_disconnect(PVIGEM_CLIENT vigem)
 		SetEvent(vigem->hDS4OutputReportPickupThreadAbortEvent);
 		WaitForSingleObject(vigem->hDS4OutputReportPickupThread, INFINITE);
 		CloseHandle(vigem->hDS4OutputReportPickupThread);
-		
+
 		DBGPRINT(L"DS4 thread clean-up for 0x%p finished", vigem);
 	}
 
@@ -723,13 +723,18 @@ VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 
 	if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
 	{
-		EnterCriticalSection(&target->Ds4CachedOutputReportUpdateLock);
+		if (target->Type == DualShock4Wired)
 		{
-			target->IsDisposing = TRUE;
-			vigem->pTargetsList[target->SerialNo] = nullptr;
-			target->State = VIGEM_TARGET_DISCONNECTED;
+			EnterCriticalSection(&target->Ds4CachedOutputReportUpdateLock);
+			{
+				target->IsDisposing = TRUE;
+				vigem->pTargetsList[target->SerialNo] = nullptr;
+
+			}
+			LeaveCriticalSection(&target->Ds4CachedOutputReportUpdateLock);
 		}
-		LeaveCriticalSection(&target->Ds4CachedOutputReportUpdateLock);
+
+		target->State = VIGEM_TARGET_DISCONNECTED;
 
 		DEVICE_IO_CONTROL_END;
 
@@ -1225,7 +1230,7 @@ VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
 	if (vigem->hBusDevice == INVALID_HANDLE_VALUE)
 		return VIGEM_ERROR_BUS_NOT_FOUND;
 
-	if (target->SerialNo == 0)
+	if (target->SerialNo == 0 || target->Type != DualShock4Wired)
 		return VIGEM_ERROR_INVALID_TARGET;
 
 	if (!buffer)
@@ -1254,13 +1259,13 @@ VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
 #endif
 
 				RtlCopyMemory(buffer, &target->Ds4CachedOutputReport, sizeof(DS4_OUTPUT_BUFFER));
-			}
 		}
+	}
 		else
 		{
 			error = VIGEM_ERROR_IS_DISPOSING;
 		}
-	}
+}
 	LeaveCriticalSection(&target->Ds4CachedOutputReportUpdateLock);
 
 	return error;
