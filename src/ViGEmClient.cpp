@@ -723,10 +723,9 @@ VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 
 	if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
 	{
-		target->IsDisposing = TRUE;
-
 		EnterCriticalSection(&target->Ds4CachedOutputReportUpdateLock);
 		{
+			target->IsDisposing = TRUE;
 			vigem->pTargetsList[target->SerialNo] = nullptr;
 			target->State = VIGEM_TARGET_DISCONNECTED;
 		}
