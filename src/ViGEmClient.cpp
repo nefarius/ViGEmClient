@@ -248,7 +248,7 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 
 		const PVIGEM_TARGET pTarget = pClient->pTargetsList[await.SerialNo];
 
-		if (pTarget)
+		if (pTarget && !pTarget->IsDisposing && pTarget->Type == DualShock4Wired)
 		{
 			memcpy(&pTarget->Ds4CachedOutputReport, &await.Report, sizeof(DS4_OUTPUT_BUFFER));
 			SetEvent(pTarget->Ds4CachedOutputReportUpdateAvailable);
@@ -1259,13 +1259,13 @@ VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
 #endif
 
 				RtlCopyMemory(buffer, &target->Ds4CachedOutputReport, sizeof(DS4_OUTPUT_BUFFER));
+			}
 		}
-	}
 		else
 		{
 			error = VIGEM_ERROR_IS_DISPOSING;
 		}
-}
+	}
 	LeaveCriticalSection(&target->Ds4CachedOutputReportUpdateLock);
 
 	return error;
