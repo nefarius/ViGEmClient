@@ -103,6 +103,7 @@ extern "C" {
 		// The specified timeout has been reached.
 		// 
 		VIGEM_ERROR_TIMED_OUT = 0xE0000018,
+		VIGEM_ERROR_IS_DISPOSING = 0xE0000019,
 	};
 
 	/**

@@ -289,7 +289,11 @@ PVIGEM_CLIENT vigem_alloc()
 void vigem_free(PVIGEM_CLIENT vigem)
 {
 	if (vigem)
+	{
+		CloseHandle(vigem->hDS4OutputReportPickupThreadAbortEvent);
+
 		free(vigem);
+	}
 }
 
 VIGEM_ERROR vigem_connect(PVIGEM_CLIENT vigem)
@@ -426,8 +430,7 @@ void vigem_disconnect(PVIGEM_CLIENT vigem)
 		SetEvent(vigem->hDS4OutputReportPickupThreadAbortEvent);
 		WaitForSingleObject(vigem->hDS4OutputReportPickupThread, INFINITE);
 		CloseHandle(vigem->hDS4OutputReportPickupThread);
-		CloseHandle(vigem->hDS4OutputReportPickupThreadAbortEvent);
-
+		
 		DBGPRINT(L"DS4 thread clean-up for 0x%p finished", vigem);
 	}
 
@@ -483,6 +486,7 @@ PVIGEM_TARGET vigem_target_ds4_alloc(void)
 		FALSE,
 		nullptr
 	);
+	InitializeCriticalSection(&target->Ds4CachedOutputReportUpdateLock);
 
 	return target;
 }
@@ -495,6 +499,8 @@ void vigem_target_free(PVIGEM_TARGET target)
 		{
 			CloseHandle(target->Ds4CachedOutputReportUpdateAvailable);
 		}
+
+		DeleteCriticalSection(&target->Ds4CachedOutputReportUpdateLock);
 
 		free(target);
 	}
@@ -717,9 +723,15 @@ VIGEM_ERROR vigem_target_remove(PVIGEM_CLIENT vigem, PVIGEM_TARGET target)
 
 	if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) != 0)
 	{
-		vigem->pTargetsList[target->SerialNo] = nullptr;
+		target->IsDisposing = TRUE;
 
-		target->State = VIGEM_TARGET_DISCONNECTED;
+		EnterCriticalSection(&target->Ds4CachedOutputReportUpdateLock);
+		{
+			vigem->pTargetsList[target->SerialNo] = nullptr;
+			target->State = VIGEM_TARGET_DISCONNECTED;
+		}
+		LeaveCriticalSection(&target->Ds4CachedOutputReportUpdateLock);
+
 		DEVICE_IO_CONTROL_END;
 
 		return VIGEM_ERROR_NONE;
@@ -1220,22 +1232,37 @@ VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
 	if (!buffer)
 		return VIGEM_ERROR_INVALID_PARAMETER;
 
-	const DWORD status = WaitForSingleObject(target->Ds4CachedOutputReportUpdateAvailable, milliseconds);
+	VIGEM_ERROR error = VIGEM_ERROR_NONE;
 
-	if (status == WAIT_TIMEOUT)
+	EnterCriticalSection(&target->Ds4CachedOutputReportUpdateLock);
 	{
-		return VIGEM_ERROR_TIMED_OUT;
-	}
+		if (!target->IsDisposing)
+		{
+			const DWORD status = WaitForSingleObject(target->Ds4CachedOutputReportUpdateAvailable, milliseconds);
 
+			if (status == WAIT_TIMEOUT)
+			{
+				error = VIGEM_ERROR_TIMED_OUT;
+			}
+			else
+			{
 #if defined(VIGEM_VERBOSE_LOGGING_ENABLED)
-	DBGPRINT(L"Dumping buffer for %d", target->SerialNo);
+				DBGPRINT(L"Dumping buffer for %d", target->SerialNo);
 
-	const PCHAR dumpBuffer = (PCHAR)calloc(sizeof(DS4_OUTPUT_BUFFER), 3);
-	to_hex(target->Ds4CachedOutputReport.Buffer, sizeof(DS4_OUTPUT_BUFFER), dumpBuffer, sizeof(DS4_OUTPUT_BUFFER) * 3);
-	OutputDebugStringA(dumpBuffer);
+				const PCHAR dumpBuffer = (PCHAR)calloc(sizeof(DS4_OUTPUT_BUFFER), 3);
+				to_hex(target->Ds4CachedOutputReport.Buffer, sizeof(DS4_OUTPUT_BUFFER), dumpBuffer, sizeof(DS4_OUTPUT_BUFFER) * 3);
+				OutputDebugStringA(dumpBuffer);
 #endif
 
-	RtlCopyMemory(buffer, &target->Ds4CachedOutputReport, sizeof(DS4_OUTPUT_BUFFER));
+				RtlCopyMemory(buffer, &target->Ds4CachedOutputReport, sizeof(DS4_OUTPUT_BUFFER));
+			}
+		}
+		else
+		{
+			error = VIGEM_ERROR_IS_DISPOSING;
+		}
+	}
+	LeaveCriticalSection(&target->Ds4CachedOutputReportUpdateLock);
 
-	return VIGEM_ERROR_NONE;
+	return error;
 }

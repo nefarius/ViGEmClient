@@ -70,6 +70,8 @@ typedef struct _VIGEM_TARGET_T
 	HANDLE CancelNotificationThreadEvent;
     DS4_OUTPUT_BUFFER Ds4CachedOutputReport;
     HANDLE Ds4CachedOutputReportUpdateAvailable;
+    CRITICAL_SECTION Ds4CachedOutputReportUpdateLock;
+    BOOLEAN IsDisposing;
 } VIGEM_TARGET;
 
 #define DEVICE_IO_CONTROL_BEGIN	\
