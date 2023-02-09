@@ -11,6 +11,6 @@ if(ViGEmClient_DLL)
 	target_link_libraries (ViGEmClient setupAPI.lib)
 else()
 	# Generate a static library, no link dependencies needed
-	add_library(ViGEmClient EXCLUDE_FROM_ALL ${SOURCES})
+	add_library(ViGEmClient STATIC EXCLUDE_FROM_ALL ${SOURCES})
 endif()
 target_include_directories(ViGEmClient PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
