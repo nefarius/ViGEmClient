@@ -2,7 +2,7 @@
 
 C/C++ developer SDK for communication with [`ViGEmBus`](https://github.com/ViGEm/ViGEmBus).
 
-[![Build status](https://ci.appveyor.com/api/projects/status/k806d3m2egjr0j56?svg=true)](https://ci.appveyor.com/project/nefarius/vigemclient) [![Discord](https://img.shields.io/discord/346756263763378176.svg)](https://discord.vigem.org)
+[![Build status](https://ci.appveyor.com/api/projects/status/k806d3m2egjr0j56?svg=true)](https://ci.appveyor.com/project/nefarius/vigemclient) [![Discord](https://img.shields.io/discord/346756263763378176.svg)](https://discord.nefarius.at)
 
 ## About
 
