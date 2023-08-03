@@ -1270,3 +1270,109 @@ VIGEM_ERROR vigem_target_ds4_await_output_report_timeout(
 
 	return error;
 }
+
+VIGEM_ERROR vigem_target_x360_get_output(
+    PVIGEM_CLIENT vigem,
+    PVIGEM_TARGET target,
+    PXUSB_OUTPUT_DATA output
+)
+{
+    if (!vigem)
+        return VIGEM_ERROR_BUS_INVALID_HANDLE;
+
+    if (!target)
+        return VIGEM_ERROR_INVALID_TARGET;
+
+    if (vigem->hBusDevice == INVALID_HANDLE_VALUE)
+        return VIGEM_ERROR_BUS_NOT_FOUND;
+
+    if (target->SerialNo == 0 || target->Type != Xbox360Wired)
+        return VIGEM_ERROR_INVALID_TARGET;
+
+    if (!output)
+        return VIGEM_ERROR_INVALID_PARAMETER;
+
+    DWORD transferred = 0;
+    OVERLAPPED lOverlapped = { 0 };
+    lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+
+    XUSB_REQUEST_NOTIFICATION xrn;
+    XUSB_REQUEST_NOTIFICATION_INIT(&xrn, target->SerialNo);
+
+    DeviceIoControl(
+        vigem->hBusDevice,
+        IOCTL_XUSB_REQUEST_NOTIFICATION,
+        &xrn,
+        xrn.Size,
+        &xrn,
+        xrn.Size,
+        &transferred,
+        &lOverlapped
+    );
+
+    if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) == 0)
+    {
+        return VIGEM_ERROR_INVALID_TARGET;
+    }
+
+    CloseHandle(lOverlapped.hEvent);
+
+    output->LargeMotor = xrn.LargeMotor;
+    output->SmallMotor = xrn.SmallMotor;
+    output->LedNumber = xrn.LedNumber;
+
+    return VIGEM_ERROR_NONE;
+}
+
+VIGEM_ERROR vigem_target_ds4_get_output(
+    PVIGEM_CLIENT vigem,
+    PVIGEM_TARGET target,
+    PDS4_OUTPUT_DATA output
+)
+{
+    if (!vigem)
+        return VIGEM_ERROR_BUS_INVALID_HANDLE;
+
+    if (!target)
+        return VIGEM_ERROR_INVALID_TARGET;
+
+    if (vigem->hBusDevice == INVALID_HANDLE_VALUE)
+        return VIGEM_ERROR_BUS_NOT_FOUND;
+
+    if (target->SerialNo == 0 || target->Type != DualShock4Wired)
+        return VIGEM_ERROR_INVALID_TARGET;
+
+    if (!output)
+        return VIGEM_ERROR_INVALID_PARAMETER;
+
+    DWORD transferred = 0;
+    OVERLAPPED lOverlapped = { 0 };
+    lOverlapped.hEvent = CreateEvent(nullptr, FALSE, FALSE, nullptr);
+
+    DS4_REQUEST_NOTIFICATION ds4rn;
+    DS4_REQUEST_NOTIFICATION_INIT(&ds4rn, target->SerialNo);
+
+    DeviceIoControl(
+        vigem->hBusDevice,
+        IOCTL_DS4_REQUEST_NOTIFICATION,
+        &ds4rn,
+        ds4rn.Size,
+        &ds4rn,
+        ds4rn.Size,
+        &transferred,
+        &lOverlapped
+    );
+
+    if (GetOverlappedResult(vigem->hBusDevice, &lOverlapped, &transferred, TRUE) == 0)
+    {
+        return VIGEM_ERROR_INVALID_TARGET;
+    }
+
+    CloseHandle(lOverlapped.hEvent);
+
+    output->LargeMotor = ds4rn.Report.LargeMotor;
+    output->SmallMotor = ds4rn.Report.SmallMotor;
+    output->LightbarColor = ds4rn.Report.LightbarColor;
+
+    return VIGEM_ERROR_NONE;
+}

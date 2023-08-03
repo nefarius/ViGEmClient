@@ -618,6 +618,36 @@ extern "C" {
 		PDS4_OUTPUT_BUFFER buffer
 	);
 
+    /**
+     * Returns the output data of the Xbox gamepad. Output refers to the USB output report, which
+     *                is used to set LEDs and motor values.
+     *
+     * @author  Matt Wszolek
+     * @date    09.28.2021
+     *
+     * @param   vigem   The driver connection object.
+     * @param   target  The target device object.
+     * @param   output  The values that are set by the output reports
+     *
+     * @returns A VIGEM_ERROR.
+     */
+    VIGEM_API VIGEM_ERROR vigem_target_x360_get_output(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, PXUSB_OUTPUT_DATA output);
+
+    /**
+     * Returns the output data of the DualShock 4 gamepad. Output refers to the USB output report,
+     *                which is used to set LED and motor values.
+     *
+     * @author  Matt Wszolek
+     * @date    09.28.2021
+     *
+     * @param   vigem   The driver connection object.
+     * @param   target  The target device object.
+     * @param   output  The values that are set by the output reports
+     *
+     * @returns A VIGEM_ERROR.
+     */
+    VIGEM_API VIGEM_ERROR vigem_target_ds4_get_output(PVIGEM_CLIENT vigem, PVIGEM_TARGET target, PDS4_OUTPUT_DATA output);
+
 #ifdef __cplusplus
 }
 #endif

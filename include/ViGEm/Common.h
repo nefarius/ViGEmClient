@@ -90,6 +90,16 @@ VOID FORCEINLINE XUSB_REPORT_INIT(
 }
 
 //
+// Values set by output reports on XINPUT_GAMEPAD
+//
+typedef struct _XUSB_OUTPUT_DATA
+{
+    UCHAR LargeMotor;
+    UCHAR SmallMotor;
+    UCHAR LedNumber;
+} XUSB_OUTPUT_DATA, *PXUSB_OUTPUT_DATA;
+
+//
 // The color value (RGB) of a DualShock 4 Lightbar
 // 
 typedef struct _DS4_LIGHTBAR_COLOR
@@ -199,6 +209,16 @@ VOID FORCEINLINE DS4_REPORT_INIT(
 
     DS4_SET_DPAD(Report, DS4_BUTTON_DPAD_NONE);
 }
+
+//
+// Values set by output reports on DualShock 4
+//
+typedef struct _DS4_OUTPUT_DATA
+{
+    UCHAR LargeMotor;
+    UCHAR SmallMotor;
+    DS4_LIGHTBAR_COLOR LightbarColor;
+} DS4_OUTPUT_DATA, *PDS4_OUTPUT_DATA;
 
 #include <pshpack1.h> // pack structs tightly
 //
