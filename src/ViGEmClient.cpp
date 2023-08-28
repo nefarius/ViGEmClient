@@ -187,7 +187,7 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 
 		if (waitResult == WAIT_OBJECT_0)
 		{
-			DBGPRINT(L"Abort event signalled during read, exiting thread");
+			DBGPRINT(L"Abort event signalled during read, exiting thread", NULL);
 			CancelIoEx(pClient->hBusDevice, &lOverlapped);
 			break;
 		}
@@ -213,19 +213,19 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 			// 
 			if (error == ERROR_INVALID_PARAMETER)
 			{
-				DBGPRINT(L"Currently used driver version doesn't support this request, aborting");
+				DBGPRINT(L"Currently used driver version doesn't support this request, aborting", NULL);
 				break;
 			}
 
 			if (error == ERROR_OPERATION_ABORTED)
 			{
-				DBGPRINT(L"Read has been cancelled, aborting");
+				DBGPRINT(L"Read has been cancelled, aborting", NULL);
 				break;
 			}
 
 			if (error == ERROR_IO_INCOMPLETE)
 			{
-				DBGPRINT(L"Pending I/O not completed, aborting");
+				DBGPRINT(L"Pending I/O not completed, aborting", NULL);
 				CancelIoEx(pClient->hBusDevice, &lOverlapped);
 				break;
 			}
