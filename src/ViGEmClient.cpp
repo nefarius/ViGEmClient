@@ -45,6 +45,8 @@ SOFTWARE.
 #include <climits>
 #include <thread>
 #include <functional>
+#include <string>
+#include <iostream>
 
 //
 // Internal
@@ -55,10 +57,15 @@ SOFTWARE.
 
 #define ERROR_INVALID_DEVICE_OBJECT_PARAMETER 0x0000028A
 
+static LPCWSTR CStrToLPCWSTR(const char* str) {
+	std::string s(str);
+	return std::wstring(s.begin(), s.end()).c_str();
+}
+
 #pragma region Diagnostics
 
 #ifdef _DEBUG
-#define DBGPRINT(kwszDebugFormatString, ...) _DBGPRINT(__FUNCTIONW__, __LINE__, kwszDebugFormatString, __VA_ARGS__)
+#define DBGPRINT(kwszDebugFormatString, ...) _DBGPRINT(CStrToLPCWSTR(__func__), __LINE__, kwszDebugFormatString, __VA_ARGS__)
 #else
 #define DBGPRINT( kwszDebugFormatString, ... ) ;;
 #endif
