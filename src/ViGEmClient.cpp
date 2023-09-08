@@ -45,6 +45,8 @@ SOFTWARE.
 #include <climits>
 #include <thread>
 #include <functional>
+#include <string>
+#include <iostream>
 
 //
 // Internal
@@ -53,11 +55,19 @@ SOFTWARE.
 
 //#define VIGEM_VERBOSE_LOGGING_ENABLED
 
+#ifndef ERROR_INVALID_DEVICE_OBJECT_PARAMETER
+#define ERROR_INVALID_DEVICE_OBJECT_PARAMETER 0x0000028A
+#endif
+
+static LPCWSTR CStrToLPCWSTR(const char* str) {
+	std::string s(str);
+	return std::wstring(s.begin(), s.end()).c_str();
+}
 
 #pragma region Diagnostics
 
 #ifdef _DEBUG
-#define DBGPRINT(kwszDebugFormatString, ...) _DBGPRINT(__FUNCTIONW__, __LINE__, kwszDebugFormatString, __VA_ARGS__)
+#define DBGPRINT(kwszDebugFormatString, ...) _DBGPRINT(CStrToLPCWSTR(__func__), __LINE__, kwszDebugFormatString, __VA_ARGS__)
 #else
 #define DBGPRINT( kwszDebugFormatString, ... ) ;;
 #endif
@@ -187,7 +197,7 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 
 		if (waitResult == WAIT_OBJECT_0)
 		{
-			DBGPRINT(L"Abort event signalled during read, exiting thread");
+			DBGPRINT(L"Abort event signalled during read, exiting thread", NULL);
 			CancelIoEx(pClient->hBusDevice, &lOverlapped);
 			break;
 		}
@@ -213,19 +223,19 @@ static DWORD WINAPI vigem_internal_ds4_output_report_pickup_handler(LPVOID Param
 			// 
 			if (error == ERROR_INVALID_PARAMETER)
 			{
-				DBGPRINT(L"Currently used driver version doesn't support this request, aborting");
+				DBGPRINT(L"Currently used driver version doesn't support this request, aborting", NULL);
 				break;
 			}
 
 			if (error == ERROR_OPERATION_ABORTED)
 			{
-				DBGPRINT(L"Read has been cancelled, aborting");
+				DBGPRINT(L"Read has been cancelled, aborting", NULL);
 				break;
 			}
 
 			if (error == ERROR_IO_INCOMPLETE)
 			{
-				DBGPRINT(L"Pending I/O not completed, aborting");
+				DBGPRINT(L"Pending I/O not completed, aborting", NULL);
 				CancelIoEx(pClient->hBusDevice, &lOverlapped);
 				break;
 			}

@@ -49,7 +49,7 @@ extern "C" {
 #endif
 
 	/** Values that represent ViGEm errors */
-	using VIGEM_ERROR = enum _VIGEM_ERRORS
+	typedef enum _VIGEM_ERRORS
 	{
 		//
 		// API succeeded.
@@ -104,7 +104,7 @@ extern "C" {
 		// 
 		VIGEM_ERROR_TIMED_OUT = 0xE0000018,
 		VIGEM_ERROR_IS_DISPOSING = 0xE0000019,
-	};
+	} VIGEM_ERROR;
 
 	/**
 	 * A macro that defines if the API succeeded
@@ -117,22 +117,24 @@ extern "C" {
 #define VIGEM_SUCCESS(_val_) (_val_ == VIGEM_ERROR_NONE)
 
 	 /** Defines an alias representing a driver connection object */
-	using PVIGEM_CLIENT = struct _VIGEM_CLIENT_T*;
+	typedef struct _VIGEM_CLIENT_T *PVIGEM_CLIENT;
 
 	/** Defines an alias representing a target device object */
-	using PVIGEM_TARGET = struct _VIGEM_TARGET_T*;
+	typedef struct _VIGEM_TARGET_T *PVIGEM_TARGET;
 
-	using EVT_VIGEM_TARGET_ADD_RESULT = _Function_class_(EVT_VIGEM_TARGET_ADD_RESULT)
-		VOID CALLBACK(
+	typedef _Function_class_(EVT_VIGEM_TARGET_ADD_RESULT)
+		VOID CALLBACK
+		EVT_VIGEM_TARGET_ADD_RESULT(
 			PVIGEM_CLIENT Client,
 			PVIGEM_TARGET Target,
 			VIGEM_ERROR Result
 		);
 
-	using PFN_VIGEM_TARGET_ADD_RESULT = EVT_VIGEM_TARGET_ADD_RESULT*;
+	typedef EVT_VIGEM_TARGET_ADD_RESULT *PFN_VIGEM_TARGET_ADD_RESULT;
 
-	using EVT_VIGEM_X360_NOTIFICATION = _Function_class_(EVT_VIGEM_X360_NOTIFICATION)
-		VOID CALLBACK(
+	typedef _Function_class_(EVT_VIGEM_X360_NOTIFICATION)
+		VOID CALLBACK
+		EVT_VIGEM_X360_NOTIFICATION(
 			PVIGEM_CLIENT Client,
 			PVIGEM_TARGET Target,
 			UCHAR LargeMotor,
@@ -141,10 +143,11 @@ extern "C" {
 			LPVOID UserData
 		);
 
-	using PFN_VIGEM_X360_NOTIFICATION = EVT_VIGEM_X360_NOTIFICATION*;
+	typedef EVT_VIGEM_X360_NOTIFICATION *PFN_VIGEM_X360_NOTIFICATION;
 
-	using EVT_VIGEM_DS4_NOTIFICATION = _Function_class_(EVT_VIGEM_DS4_NOTIFICATION)
-		VOID CALLBACK(
+	typedef _Function_class_(EVT_VIGEM_DS4_NOTIFICATION)
+		VOID CALLBACK
+		EVT_VIGEM_DS4_NOTIFICATION(
 			PVIGEM_CLIENT Client,
 			PVIGEM_TARGET Target,
 			UCHAR LargeMotor,
@@ -153,7 +156,7 @@ extern "C" {
 			LPVOID UserData
 		);
 
-	using PFN_VIGEM_DS4_NOTIFICATION = EVT_VIGEM_DS4_NOTIFICATION*;
+	typedef EVT_VIGEM_DS4_NOTIFICATION *PFN_VIGEM_DS4_NOTIFICATION;
 
 	/**
 	 *  Allocates an object representing a driver connection
