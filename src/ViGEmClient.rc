@@ -81,7 +81,7 @@ BEGIN
             VALUE "FileDescription", "Virtual Gamepad Emulation Framework User-Mode Library"
             VALUE "FileVersion", "1.0.0.1"
             VALUE "InternalName", "ViGEmClient.dll"
-            VALUE "LegalCopyright", "Copyright (C) 2017-2020 Nefarius Software Solutions e.U."
+            VALUE "LegalCopyright", "Copyright (C) 2017-2023 Nefarius Software Solutions e.U."
             VALUE "OriginalFilename", "ViGEmClient.dll"
             VALUE "ProductName", "Virtual Gamepad Emulation Framework User-Mode Library"
             VALUE "ProductVersion", "1.0.0.1"
