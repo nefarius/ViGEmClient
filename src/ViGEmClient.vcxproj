@@ -305,6 +305,7 @@
     <ClInclude Include="..\include\ViGEm\km\BusShared.h" />
     <ClInclude Include="Internal.h" />
     <ClInclude Include="resource.h" />
+    <ClInclude Include="UniUtil.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="ViGEmClient.cpp" />
