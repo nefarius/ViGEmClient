@@ -4,6 +4,14 @@ C/C++ developer SDK for communication with [`ViGEmBus`](https://github.com/nefar
 
 [![Build status](https://ci.appveyor.com/api/projects/status/k806d3m2egjr0j56?svg=true)](https://ci.appveyor.com/project/nefarius/vigemclient) [![Discord](https://img.shields.io/discord/346756263763378176.svg)](https://discord.nefarius.at)
 
+---
+
+## 🧟 THIS PROJECT HAS BEEN RETIRED 🧟
+
+Users of this software are encouraged to [read the end-of-life statement](https://docs.nefarius.at/projects/ViGEm/End-of-Life/). So long, cheers 🖖
+
+---
+
 ## About
 
 **TL;DR:** use this if you want to create virtual game controllers from your C/C++ application 😊
